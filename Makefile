@@ -40,4 +40,5 @@ scanner.c: scanner.l
 clean:
 	@echo -e "\E[32m"$@"\E[m"
 	@tput sgr0
-	@rm -f scanner.c parser.h parser.c calc.exe *.o parser.output calc.exe.stackdump
+	@rm -f calc calc.exe calc.exe.stackdump parser.c parser.h scanner.c *.o *.output
+
