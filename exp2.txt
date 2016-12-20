@@ -1,0 +1,247 @@
+func max(a,b,c=PI) {
+    echo "max(a,b,-c) = (", a, ", ", b, ", ", -c, "), a+b+c = ", a+b*c, ", |(-a)+b-c| = ", |(-a)+b-c|, ", b^c = ", b^c, ", pow(a+b,c) = ", pow(a+b,c), endl;
+    ret a>b ? a : b;
+}
+
+func void() {
+}
+
+func void2(a) {
+}
+
+
+max(1,2,3);
+
+a = max(1,2);
+
+echo "max(1,2) = ", a, endl;
+echo "-a+2 = ", (-a)+2, endl;
+echo "-a-2 = ", (-a)-2, endl;
+echo "-a+-a = ", (-a)+-a, endl;
+
+func plus(a,b) {
+	eq = a + b;
+	ret eq;
+}
+
+echo "plus(a,b) = (1,2) = ", plus(1,2), endl;
+
+func ifelse(cond,expr1,expr2) {
+	if(cond>0) {
+		ret expr1;
+	} else {
+		ret expr2;
+	}
+}
+
+echo "ifelse(a,b) = (1>0 ? 2 : 3) = ", ifelse(1,2,3), endl;
+
+function factorial(n) {
+	f=1;
+	while(n>1) {
+		f=f*n;
+		n = n -1;
+	}
+	return f;
+}
+
+echo "factorial(n) = factorial(10) = ", factorial(10), endl;
+
+function accumulation(n) {
+	a=1;
+	sum = 0;
+	while(a<=n) {
+		if(a>1) {
+			echo " + ", a;
+		} else {
+			echo a;
+		}
+		sum = sum + a;
+		a = a + 1;
+	}
+	
+	return sum;
+}
+
+echo "accumulation(n) = accumulation(10) = ", accumulation(10), endl;
+
+function accumulation2(n) {
+	a=1;
+	sum = 0;
+	do {
+		if(a>1) {
+			echo " + ", a;
+		} else {
+			echo a;
+		}
+		sum = sum + a;
+		a = a + 1;
+	} while(a<=n);
+	
+	return sum;
+}
+
+echo "accumulation2(n) = accumulation2(10) = ", accumulation2(10), endl;
+
+func trigon() {
+	y = 0;
+	do {
+		echo "*";
+		y++;
+	} while(y<=22);
+	echo endl;
+
+	y = 10;
+	do {
+		y--;
+		absY = |y|;
+
+		echo "* ";
+		x = absY;
+		while(x>0) {
+			echo " ";
+			x--;
+		}
+
+		x = 1;
+		do {
+			echo "*";
+			x++;
+		} while(x<=(10-absY)*2-1);
+
+		x = absY;
+		while(x>0) {
+			echo " ";
+			x--;
+		}
+
+		echo " *",endl;
+	} while(y>-9);
+
+	y = 0;
+	do {
+		echo "*";
+		y++;
+	} while(y<=22);
+	echo endl;
+}
+
+trigon();
+
+srand;
+
+echo "RAND_MAX = ", RAND_MAX, endl;
+echo "rand() = ", rand(), endl;
+echo "randf() = ", randf(), endl;
+
+function multiAngleStar(n) {
+	radius = 20;
+	radius2 = radius*2;
+	array arr[radius2][radius2];
+
+	angle = 0;
+	r = 0;
+	pr = randf()*2*PI;
+	while(r<radius) {
+		arr[sin(r+pr)*r+radius][cos(r+pr)*r+radius] = 1;
+
+		angle++;
+		r = rad(angle);
+	}
+	
+	y = 0;
+	
+	while(y<radius2) {
+		x = 0;	
+		
+		while(x<radius2) {
+			if(arr[y][x]) {
+				echo "*";
+			} else {
+				echo " ";
+			}
+			
+			x++;
+		}
+		echo endl;
+		
+		y++;
+	}
+}
+
+multiAngleStar(5);
+
+function assign2() {
+	array arr[2];
+	
+	i=0;
+	while(i<2) {
+		arr[i]=rand()%20;
+		echo "arr[",i,"] = ", arr[i],endl;
+		i++;
+	}
+
+	i = 0;
+	rnd = rand()%20;
+	while(i<2) {
+		arr[i]+=rnd;
+		echo "arr[",i,"] += ",rnd," = ", arr[i],endl;
+		i++;
+	}
+
+	i = 0;
+	rnd = rand()%20;
+	while(i<2) {
+		arr[i]-=rnd;
+		echo "arr[",i,"] -= ",rnd," = ", arr[i],endl;
+		i++;
+	}
+
+	i = 0;
+	rnd = rand()%20;
+	while(i<2) {
+		arr[i]*=rnd;
+		echo "arr[",i,"] *= ",rnd," = ", arr[i],endl;
+		i++;
+	}
+
+	i = 0;
+	rnd = 1+rand()%10;
+	while(i<2) {
+		arr[i]/=rnd;
+		echo "arr[",i,"] /= ",rnd," = ", arr[i],endl;
+		i++;
+	}
+
+	i = 0;
+	rnd = rand()%20;
+	while(i<2) {
+		arr[i]%=rnd;
+		echo "arr[",i,"] %= ",rnd," = ", arr[i],endl;
+		i++;
+	}
+	
+	i+=5;
+	echo "i += ", i, endl;
+	
+	i-=2;
+	echo "i -= ", i, endl;
+	
+	i%=6;
+	echo "i %= ", i, endl;
+	
+	i*=34;
+	echo "i *= ", i, endl;
+	
+	i/=3;
+	echo "i /= ", i, endl;
+	
+	//arr[2]=1;
+}
+
+func assign3() {
+	echo assign2();
+}
+
+srand;
+assign3();
