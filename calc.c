@@ -299,7 +299,12 @@ void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 	op2->type = LONG_T;
 
 	dst->type = LONG_T;
-	dst->lval = op1->lval % op2->lval;
+	if(op2->lval) {
+		dst->lval = op1->lval % op2->lval;
+	} else {
+		dst->lval = 0;
+		yyerror("op1 % op2, op2==0!!!");
+	}
 }
 
 #define CALC_ABS_DEF(dst,src,type,val) case type: dst->val=(src->val > 0 ? src->val : -src->val);break
@@ -817,17 +822,9 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 			case ARRAY_STMT_T: {
 				exp_val_t val;
 				call_args_t *callArgs = syms->args->next;
-				call_args_t *tmpArgs = NULL, *args = NULL;
+				call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
 
 				while (callArgs) {
-					if (tmpArgs) {
-						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
-						tmpArgs = tmpArgs->next;
-					} else {
-						tmpArgs = (call_args_t*) malloc(sizeof(call_args_t));
-						args = tmpArgs;
-					}
-					tmpArgs->next = NULL;
 					calc_run_expr(&tmpArgs->val, &callArgs->val);
 					CALC_CONV((&tmpArgs->val), (&tmpArgs->val), ival);
 					tmpArgs->val.type = INT_T;
@@ -839,6 +836,12 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 						abort();
 					}
 					callArgs = callArgs->next;
+					if(callArgs) {
+						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
+						tmpArgs = tmpArgs->next;
+					} else {
+						tmpArgs->next = NULL;
+					}
 				}
 
 				tmpArgs->next = NULL;
@@ -1011,16 +1014,15 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 
 	call_args_t *tmpArgs = args;
 	func_args_t *funcArgs = def->args;
-	exp_val_t *ptr = NULL;
-
+	exp_val_t val;
 	while (funcArgs) {
-		if (tmpArgs) {
-			ptr = &tmpArgs->val;
+		if(tmpArgs) {
+			calc_run_expr(&val, &tmpArgs->val);
 			tmpArgs = tmpArgs->next;
 		} else {
-			ptr = &funcArgs->val;
+			val = funcArgs->val;
 		}
-		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), ptr, sizeof(exp_val_t), NULL);
+		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
 		funcArgs = funcArgs->next;
 	}
 
@@ -1107,9 +1109,9 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 				exit(0);
 			}
 
-			printf("call user function for ");
+			dprintf("call user function for ");
 			calc_func_print(def);
-			printf("\n");
+			dprintf("\n");
 
 			linenostack[++linenostacktop].funcname = name;
 			call_func_run(ret, def, args);
@@ -1140,7 +1142,7 @@ void seed_rand() {
 void call_free_expr(exp_val_t *expr) {
 	switch (expr->type) {
 		case VAR_T: {
-			printf("--- Free: VAR_T --- ");
+			dprintf("--- Free: VAR_T --- ");
 			free(expr->str);
 			break;
 		}
@@ -1150,7 +1152,7 @@ void call_free_expr(exp_val_t *expr) {
 		case DIV_T:
 		case MOD_T:
 		case POW_T: {
-			printf("--- Free: ADD_T/.../POW_T --- ");
+			dprintf("--- Free: ADD_T/.../POW_T --- ");
 			call_free_expr(expr->left);
 			call_free_expr(expr->right);
 
@@ -1160,14 +1162,14 @@ void call_free_expr(exp_val_t *expr) {
 		}
 		case ABS_T:
 		case MINUS_T: {
-			printf("--- Free: ABS_T/MINUS_T --- ");
+			dprintf("--- Free: ABS_T/MINUS_T --- ");
 			call_free_expr(expr->left);
 			
 			free(expr->left);
 			break;
 		}
 		case FUNC_T: {
-			printf("--- Free: FUNC_T --- ");
+			dprintf("--- Free: FUNC_T --- ");
 			calc_free_args(expr->call.args);
 			break;
 		}
@@ -1177,7 +1179,7 @@ void call_free_expr(exp_val_t *expr) {
 		case LOGIC_LE_T:
 		case LOGIC_EQ_T:
 		case LOGIC_NE_T: {
-			printf("--- Free: LOGIC_??_T --- ");
+			dprintf("--- Free: LOGIC_??_T --- ");
 			call_free_expr(expr->left);
 			call_free_expr(expr->right);
 			
@@ -1186,7 +1188,7 @@ void call_free_expr(exp_val_t *expr) {
 			break;
 		}
 		case IF_T: {
-			printf("--- Free: IF_T --- ");
+			dprintf("--- Free: IF_T --- ");
 			call_free_expr(expr->cond);
 			call_free_expr(expr->left);
 			call_free_expr(expr->right);
@@ -1197,8 +1199,7 @@ void call_free_expr(exp_val_t *expr) {
 			break;
 		}
 		case ARRAY_T: {
-			printf("--- Free: ARRAY_T --- ");
-			calc_array_free(expr, expr->arrayArgs);
+			dprintf("--- Free: ARRAY_T --- ");
 			break;
 		}
 	}
@@ -1214,18 +1215,18 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 		}
 	}
 	free(ptr->array);
-	free(args);
 }
 
 void call_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
-			printf("--- Free: ARRAY_T ---\n");
+			dprintf("--- Free: ARRAY_T(%08x) ---\n", expr->arrayArgs);
 			calc_array_free(expr, expr->arrayArgs);
+			calc_free_args(expr->arrayArgs);
 			break;
 		}
 		default: {
-			printf("--- Free: %s ---\n", types[expr->type - INT_T]);
+			dprintf("--- Free: %s ---\n", types[expr->type - INT_T]);
 		}
 	}
 	//free(expr);

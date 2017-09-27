@@ -158,6 +158,7 @@ int _zend_hash_init(HashTable *ht, uint nSize, dtor_func_t pDestructor)
 {
 	uint i = 3;
 
+	memset(ht, 0, sizeof(HashTable));
 	if (nSize >= 0x80000000) {
 		/* prevent overflow */
 		ht->nTableSize = 0x80000000;
@@ -168,15 +169,8 @@ int _zend_hash_init(HashTable *ht, uint nSize, dtor_func_t pDestructor)
 		ht->nTableSize = 1 << i;
 	}
 
-	ht->nTableMask = 0;	/* 0 means that ht->arBuckets is uninitialized */
 	ht->pDestructor = pDestructor;
 	ht->arBuckets = (Bucket**)&uninitialized_bucket;
-	ht->pListHead = NULL;
-	ht->pListTail = NULL;
-	ht->nNumOfElements = 0;
-	ht->nNextFreeElement = 0;
-	ht->pInternalPointer = NULL;
-	ht->nApplyCount = 0;
 	ht->bApplyProtection = 1;
 	return SUCCESS;
 }

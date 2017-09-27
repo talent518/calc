@@ -144,7 +144,7 @@ struct _func_symbol_t {
 };
 
 extern int yylineno;
-extern size_t yyleng;
+extern int yyleng;
 extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
