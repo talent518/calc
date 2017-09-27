@@ -3,10 +3,7 @@
 
 #include "calc.h"
 
-#define ASSIGNMENT_STATEMENT(var,expr) \
-	exp_val_t *ptr=(exp_val_t*)malloc(sizeof(exp_val_t)); \
-	memcpy(ptr, expr, sizeof(exp_val_t)); \
-	g_hash_table_replace(vars, var->str, ptr);
+#define ASSIGNMENT_STATEMENT(var,expr) zend_hash_update(&vars, var->str, strlen(var->str), expr, sizeof(exp_val_t), NULL);
 
 #define MEMDUP(dst,src,type) dst=(type*)malloc(sizeof(type));memcpy(dst,src,sizeof(type))
 #define CALL_ARGS(args,v) args=malloc(sizeof(call_args_t));args->val=v;args->tail=args;args->next=NULL
@@ -40,9 +37,9 @@
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist LIST ';' { printf("list\n");g_hash_table_foreach(vars, (GHFunc)calc_clear_or_list_vars, (void*)1); }
- | calclist CLEAR ';' { printf("clear\n");g_hash_table_foreach_remove(vars, (GHRFunc)calc_clear_or_list_vars, NULL); }
- | calclist VARIABLE '=' expr ';' { ASSIGNMENT_STATEMENT((&$2),(&$4)); }
+ | calclist LIST ';' { printf("list\n");zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, ZEND_HASH_APPLY_KEEP); }
+ | calclist CLEAR ';' { printf("clear\n");zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, ZEND_HASH_APPLY_REMOVE); }
+ | calclist VARIABLE '=' expr ';' { ASSIGNMENT_STATEMENT((&$2),(&$4));free($2.str); }
  | calclist ECHO_T echo ';' { /* echo expr/str */ }
  | calclist FUNC VARIABLE '(' ')' '{' '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def)); }
  | calclist FUNC VARIABLE '(' ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def)); }
@@ -50,8 +47,8 @@ calclist:
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;calc_func_def(&($$.def)); }
  | calclist SRAND ';' { seed_rand(); }
  | calclist SRAND '(' ')' ';' { seed_rand(); }
- | calclist CALL '(' ')' ';' { printf("warning: System function %d is not in this call\n", $$.call.name); } // 系统函数
- | calclist CALL '(' argList ')' ';' { printf("warning: System function %d is not in this call\n", $$.call.name); } // 系统函数
+ | calclist CALL '(' ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
+ | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
  | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str); } // 用户自定义函数
  | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args); } // 用户自定义函数
 ;
@@ -153,7 +150,7 @@ argList: arg
 arg: expr { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); }
 ;
 value: number
- | VARIABLE { exp_val_t *ptr=(exp_val_t*)g_hash_table_lookup(vars, $1.str);free($1.str);if(ptr) {memcpy(&$$, ptr, sizeof(exp_val_t));} else {memset(&$$, 0, sizeof(exp_val_t));} }
+ | VARIABLE { exp_val_t *ptr=NULL;zend_hash_find(&vars, $1.str, strlen($1.str), (void**)&ptr);free($1.str);if(ptr) {memcpy(&$$, ptr, sizeof(exp_val_t));} else {memset(&$$, 0, sizeof(exp_val_t));} }
 ;
 number: NUMBER
  | CONST_RAND_MAX

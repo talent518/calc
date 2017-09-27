@@ -1,44 +1,37 @@
 CC = gcc
 
-CFLAGS = -O3 -g -DYYSTYPE_IS_DECLARED `pkg-config --cflags glib-2.0`
-LFLAGS = -lm `pkg-config --libs glib-2.0`
+CFLAGS = -O3 -g -DYYSTYPE_IS_DECLARED
+LFLAGS = -lm
 
 all: calc
 
 .PHONY:
 
 test: calc
-	@echo -e "\E[35m"$@"\E[m"
-	@tput sgr0
+	@echo $@
 	@./calc < exp.txt
 
 test2: calc
-	@echo -e "\E[35m"$@"\E[m"
-	@tput sgr0
+	@echo $@
 	@./calc < exp2.txt
 
-calc: calc.h parser.o scanner.o calc.o
-	@echo -e "\E[31m"$@"\E[m"
-	@tput sgr0
+calc: parser.o scanner.o zend_hash.o calc.o
+	@echo $@
 	@$(CC) $(CFLAGS) -o $@ $? $(LFLAGS)
 
 parser.c: parser.y
-	@echo -e "\E[34m"$?"\E[m"
-	@tput sgr0
+	@echo $?
 	@bison -v -d -o$@ $?
 
 scanner.c: scanner.l
-	@echo -e "\E[33m"$?"\E[m"
-	@tput sgr0
+	@echo $?
 	@flex -o$@ $?
 
 %.o: %.c
-	@echo -e "\E[32m"$?"\E[m"
-	@tput sgr0
+	@echo $?
 	@$(CC) $(CFLAGS) -o $@ -c $?
 
 clean:
-	@echo -e "\E[32m"$@"\E[m"
-	@tput sgr0
+	@echo $@
 	@rm -f calc calc.exe calc.exe.stackdump parser.c parser.h scanner.c *.o *.output
 

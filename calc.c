@@ -1,7 +1,7 @@
 #include "calc.h"
 
-GHashTable *vars = NULL;
-GHashTable *funcs = NULL;
+HashTable vars;
+HashTable funcs;
 
 typedef struct _linenostack {
 	unsigned int lineno;
@@ -419,15 +419,19 @@ void calc_print(char *p) {
 	}
 }
 
-gboolean calc_clear_or_list_vars(char *key, exp_val_t *val, void *user_data) {
-	if (user_data) {
+int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
+	int result = va_arg(args, int);
+	char *key = strndup(hash_key->arKey, hash_key->nKeyLength);
+	
+	if (result == ZEND_HASH_APPLY_KEEP) {
 		printf("    (%6s) %s = ", types[val->type - INT_T], key);
 	} else {
 		printf("    remove variable %s, type is %s, value is ", key, types[val->type - INT_T]);
 	}
+	free(key);
 	calc_echo(val);
 	printf("\n");
-	return TRUE;
+	return result;
 }
 
 void calc_func_print(func_def_f *def) {
@@ -469,7 +473,8 @@ void calc_func_print(func_def_f *def) {
 		}
 	}
 	strcat(names, ")");
-	dprintf(names);
+	dprintf("%s", names);
+	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
 	if (errArgc) {
 		yyerror("The user function %s the first %d argument not default value", names, errArgc + 1);
 		exit(0);
@@ -481,9 +486,7 @@ void calc_func_def(func_def_f *def) {
 	calc_func_print(def);
 	dprintf("\n");
 
-	func_def_f *ptr = (func_def_f*) malloc(sizeof(func_def_f));
-	memcpy(ptr, def, sizeof(func_def_f));
-	g_hash_table_replace(funcs, def->name, ptr);
+	zend_hash_update(&funcs, def->name, strlen(def->name), def, sizeof(func_def_f), NULL);
 }
 
 void calc_free_args(call_args_t *args) {
@@ -526,6 +529,7 @@ void calc_free_func(func_def_f *def) {
 	while (args) {
 		tmpArgs = args;
 		args = args->next;
+		//free(tmpArgs->name);
 		free(tmpArgs);
 	}
 
@@ -543,7 +547,8 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			memcpy(ret, expr, sizeof(exp_val_t));
 			break;
 		case VAR_T: {
-			exp_val_t *ptr = g_hash_table_lookup(vars, expr->str);
+			exp_val_t *ptr = NULL;
+			zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
 			if (ptr) {
 				memcpy(ret, ptr, sizeof(exp_val_t));
 			} else {
@@ -671,7 +676,8 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case ARRAY_T: {
-			exp_val_t *ptr = g_hash_table_lookup(vars, expr->call.name);
+			exp_val_t *ptr = NULL;
+			zend_hash_find(&vars, expr->call.name, strlen(expr->call.name), (void**)&ptr);
 			if (ptr->type != ARRAY_T) {
 				yyerror("(warning) variable %s not is a array, type is %s", expr->call.name, types[ptr->type - INT_T]);
 			} else {
@@ -719,13 +725,13 @@ void calc_array_init(exp_val_t *ptr, call_args_t *args) {
 	ptr->arrlen = args->val.ival;
 	ptr->array = (exp_val_t*) malloc(sizeof(exp_val_t) * args->val.ival);
 
+	memset(ptr->array, 0, sizeof(exp_val_t) * args->val.ival);
+
 	if (args->next) {
 		int i;
 		for (i = 0; i < args->val.ival; i++) {
 			calc_array_init(&ptr->array[i], args->next);
 		}
-	} else {
-		memset(ptr->array, 0, sizeof(exp_val_t) * args->val.ival);
 	}
 }
 
@@ -809,7 +815,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				return BREAK_STATUS;
 			}
 			case ARRAY_STMT_T: {
-				exp_val_t *ptr = malloc(sizeof(exp_val_t));
+				exp_val_t val;
 				call_args_t *callArgs = syms->args->next;
 				call_args_t *tmpArgs = NULL, *args = NULL;
 
@@ -835,37 +841,40 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 					callArgs = callArgs->next;
 				}
 
-				calc_array_init(ptr, args);
-				calc_free_args(args);
+				tmpArgs->next = NULL;
+				calc_array_init(&val, args);
+				val.arrayArgs = args;
 
-				g_hash_table_replace(vars, syms->args->val.str, ptr);
+				zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 				break;
 			}
 			case INC_STMT_T: {
-				exp_val_t *ptr = g_hash_table_lookup(vars, syms->args->val.str);
+				exp_val_t *ptr = NULL;
+				zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
 				if (ptr) {
 					exp_val_t val={INT_T,1};
 					calc_add(ptr, ptr, &val);
 				} else {
-					ptr = (exp_val_t*)malloc(sizeof(exp_val_t));
-					ptr->type = INT_T;
-					ptr->ival = 1;
+					exp_val_t val;
+					val.type = INT_T;
+					val.ival = 1;
 					
-					g_hash_table_replace(vars, syms->args->val.str, ptr);
+					zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 				}
 				break;
 			}
 			case DEC_STMT_T: {
-				exp_val_t *ptr = g_hash_table_lookup(vars, syms->args->val.str);
+				exp_val_t *ptr = NULL;
+				zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
 				if (ptr) {
 					exp_val_t val={INT_T,1};
 					calc_sub(ptr, ptr, &val);
 				} else {
-					ptr = (exp_val_t*)malloc(sizeof(exp_val_t));
-					ptr->type = INT_T;
-					ptr->ival = -1;
+					exp_val_t val;
+					val.type = INT_T;
+					val.ival = -1;
 					
-					g_hash_table_replace(vars, syms->args->val.str, ptr);
+					zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 				}
 				break;
 			}
@@ -881,7 +890,8 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				
 				switch (syms->var->type) {
 					case VAR_T: {
-						exp_val_t *ptr = g_hash_table_lookup(vars, syms->args->val.str);
+						exp_val_t *ptr = NULL;
+						zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
 						if (ptr) {
 							switch(syms->type) {
 								case ADDEQ_STMT_T:
@@ -904,15 +914,13 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 									break;
 							}
 						} else {
-							ptr = (exp_val_t*)malloc(sizeof(exp_val_t));
-							memcpy(ptr, &val, sizeof(exp_val_t));
-					
-							g_hash_table_replace(vars, syms->args->val.str, ptr);
+							zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 						}
 						break;
 					}
 					case ARRAY_T: {
-						exp_val_t *ptr = g_hash_table_lookup(vars, syms->var->call.name);
+						exp_val_t *ptr = NULL;
+						zend_hash_find(&vars, syms->var->call.name, strlen(syms->var->call.name), (void**)&ptr);
 						if (ptr->type != ARRAY_T) {
 							yyerror("(warning) variable %s not is a array, type is %s", syms->var->call.name, types[ptr->type - INT_T]);
 						} else {
@@ -997,31 +1005,29 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 }
 
 void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
-	GHashTable *tmpVars = vars;
-	vars = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
+	HashTable tmpVars = vars;
+	
+	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 
 	call_args_t *tmpArgs = args;
 	func_args_t *funcArgs = def->args;
-	exp_val_t vals[def->argc];
-	unsigned i = 0;
-
-	memset(vals, 0, sizeof(vals));
+	exp_val_t *ptr = NULL;
 
 	while (funcArgs) {
 		if (tmpArgs) {
-			vals[i] = tmpArgs->val;
+			ptr = &tmpArgs->val;
 			tmpArgs = tmpArgs->next;
 		} else {
-			vals[i] = funcArgs->val;
+			ptr = &funcArgs->val;
 		}
-		g_hash_table_replace(vars, funcArgs->name, &vals[i]);
-		i++;
+		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), ptr, sizeof(exp_val_t), NULL);
 		funcArgs = funcArgs->next;
 	}
 
 	calc_run_syms(ret, def->syms);
 
-	g_hash_table_destroy(vars);
+	zend_hash_destroy(&vars);
+
 	vars = tmpVars;
 }
 
@@ -1092,7 +1098,8 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 		ret->dval = (double) rand() / (double) RAND_MAX;
 		break;
 	case USER_F: {
-		func_def_f *def = (func_def_f *) g_hash_table_lookup(funcs, name);
+		func_def_f *def = NULL;
+		zend_hash_find(&funcs, name, strlen(name), (void**)&def);
 		if (def) {
 			if (_argc > def->argc || _argc < def->minArgc) {
 				//printf("minArgc=%d, _argc=%d, argc=%d\n", def->minArgc, _argc, def->argc);
@@ -1100,9 +1107,9 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 				exit(0);
 			}
 
-			//printf("call user function for ");
-			//calc_func_print(def);
-			//printf("\n");
+			printf("call user function for ");
+			calc_func_print(def);
+			printf("\n");
 
 			linenostack[++linenostacktop].funcname = name;
 			call_func_run(ret, def, args);
@@ -1123,23 +1130,115 @@ void seed_rand() {
 	struct timeval tp = { 0 };
 
 	if (gettimeofday(&tp, NULL)) {
-		srand((unsigned int) time(NULL));
+		srand((unsigned int) time((time_t*)NULL));
 		return;
 	}
 
 	srand((unsigned int) (tp.tv_sec + tp.tv_usec));
 }
 
-int main(int argc, char **argv) {
-	vars = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, free);
-	funcs = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify) calc_free_func);
+void call_free_expr(exp_val_t *expr) {
+	switch (expr->type) {
+		case VAR_T: {
+			printf("--- Free: VAR_T --- ");
+			free(expr->str);
+			break;
+		}
+		case ADD_T:
+		case SUB_T:
+		case MUL_T:
+		case DIV_T:
+		case MOD_T:
+		case POW_T: {
+			printf("--- Free: ADD_T/.../POW_T --- ");
+			call_free_expr(expr->left);
+			call_free_expr(expr->right);
 
-	//printf("sizeof(exp_val_t) = %d\n", sizeof(exp_val_t));
+			free(expr->left);
+			free(expr->right);
+			break;
+		}
+		case ABS_T:
+		case MINUS_T: {
+			printf("--- Free: ABS_T/MINUS_T --- ");
+			call_free_expr(expr->left);
+			
+			free(expr->left);
+			break;
+		}
+		case FUNC_T: {
+			printf("--- Free: FUNC_T --- ");
+			calc_free_args(expr->call.args);
+			break;
+		}
+		case LOGIC_GT_T:
+		case LOGIC_LT_T:
+		case LOGIC_GE_T:
+		case LOGIC_LE_T:
+		case LOGIC_EQ_T:
+		case LOGIC_NE_T: {
+			printf("--- Free: LOGIC_??_T --- ");
+			call_free_expr(expr->left);
+			call_free_expr(expr->right);
+			
+			free(expr->left);
+			free(expr->right);
+			break;
+		}
+		case IF_T: {
+			printf("--- Free: IF_T --- ");
+			call_free_expr(expr->cond);
+			call_free_expr(expr->left);
+			call_free_expr(expr->right);
+
+			free(expr->cond);
+			free(expr->left);
+			free(expr->right);
+			break;
+		}
+		case ARRAY_T: {
+			printf("--- Free: ARRAY_T --- ");
+			calc_array_free(expr, expr->arrayArgs);
+			break;
+		}
+	}
+}
+
+void calc_array_free(exp_val_t *ptr, call_args_t *args) {
+	int i;
+	for (i = 0; i < args->val.ival; i++) {
+		if(ptr->array[i].type == ARRAY_T && args->next) {
+			calc_array_free(&ptr->array[i], args->next);
+		} else {
+			call_free_expr(&ptr->array[i]);
+		}
+	}
+	free(ptr->array);
+	free(args);
+}
+
+void call_free_vars(exp_val_t *expr) {
+	switch (expr->type) {
+		case ARRAY_T: {
+			printf("--- Free: ARRAY_T ---\n");
+			calc_array_free(expr, expr->arrayArgs);
+			break;
+		}
+		default: {
+			printf("--- Free: %s ---\n", types[expr->type - INT_T]);
+		}
+	}
+	//free(expr);
+}
+
+int main(int argc, char **argv) {
+	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
+	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
 	yyparse();
 
-	g_hash_table_destroy(vars);
-	g_hash_table_destroy(funcs);
+	zend_hash_destroy(&vars);
+	zend_hash_destroy(&funcs);
 
 	return 0;
 }

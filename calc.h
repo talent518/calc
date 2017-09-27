@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 #include <sys/time.h>
 #include <math.h>
 #include <complex.h>
-#include <glib.h>
+
+#include "zend_hash.h"
 
 typedef enum _type_enum_t {
 	NULL_T, // 空
@@ -103,6 +105,7 @@ struct _exp_val_t {
 		struct {
 			unsigned int arrlen;
 			struct _exp_val_t *array;
+			call_args_t *arrayArgs;
 		};
 	};
 };
@@ -143,8 +146,8 @@ struct _func_symbol_t {
 extern int yylineno;
 extern size_t yyleng;
 extern char *types[];
-extern GHashTable *vars;
-extern GHashTable *funcs;
+extern HashTable vars;
+extern HashTable funcs;
 
 void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
 void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
@@ -158,16 +161,20 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src);
 void calc_echo(exp_val_t *src);
 void calc_sprintf(char *buf, exp_val_t *src);
 void calc_print(char *p);
-gboolean calc_clear_or_list_vars(char *key, exp_val_t *val, void *user_data);
+int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 void calc_func_print(func_def_f *def);
 void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
 void calc_free_syms(func_symbol_t *syms);
 void calc_free_func(func_def_f *def);
 void calc_run_expr(exp_val_t *ret, exp_val_t *expr);
+void call_free_expr(exp_val_t *expr);
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args);
 void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, call_args_t *args);
+
+void call_free_vars(exp_val_t *expr);
+void calc_array_free(exp_val_t *ptr, call_args_t *args);
 
 void seed_rand();
 void yyerror(char *s, ...);
@@ -182,4 +189,7 @@ void yyerror(char *s, ...);
 #define dprintf(...)
 #endif
 
+int yylex (void);
+
 #include "parser.h"
+
