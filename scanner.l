@@ -95,6 +95,7 @@ inline void setval(exp_val_t *val) {
 "/="                                           { return DIVEQ; }
 "%="                                           { return MODEQ; }
 "array"                                        { return ARRAY; }
+"global"                                       { return GLOBAL_T; }
 "cos"                                          { yylval.type=FUNC_T;yylval.call.type=COS_F;yylval.call.argc=1;yylval.call.name="cos(double radian)";return CALL; }
 "pow"                                          { yylval.type=FUNC_T;yylval.call.type=POW_F;yylval.call.argc=2;yylval.call.name="pow(double base, double exp)";return CALL; }
 "rad"                                          { yylval.type=FUNC_T;yylval.call.type=RAD_F;yylval.call.argc=1;yylval.call.name="rad(double angle)";return CALL; }

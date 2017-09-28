@@ -549,6 +549,10 @@ void calc_free_syms(func_symbol_t *syms) {
 				free(syms->args);
 				break;
 			}
+			case GLOBAL_T: {
+				calc_free_args(syms->args);
+				break;
+			}
 			case INC_STMT_T: {
 				free(syms->args->val.str);
 				free(syms->args);
@@ -916,6 +920,10 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 				break;
 			}
+			case GLOBAL_T: {
+				// 只在函数执行完成后做复制对应tmpVars中的变量到全局vars中)
+				break;
+			}
 			case INC_STMT_T: {
 				exp_val_t *ptr = NULL;
 				zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
@@ -1092,7 +1100,32 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 	}
 
 	calc_run_syms(ret, def->syms);
-
+	
+	vars.pDestructor = NULL;
+	
+	func_symbol_t *syms = def->syms;
+	
+	while(syms) {
+		if(syms->type != GLOBAL_T) {
+			syms = syms->next;
+			continue;
+		}
+		
+		call_args_t *_args = syms->args;
+		while(_args) {
+			exp_val_t *ptr = NULL;
+			
+			zend_hash_find(&vars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
+			if(ptr) {
+				zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+				zend_hash_del(&vars, _args->val.str, strlen(_args->val.str));
+			}
+			_args = _args->next;
+		}
+		
+		syms = syms->next;
+	}
+	vars.pDestructor = (dtor_func_t)call_free_vars;
 	zend_hash_destroy(&vars);
 
 	vars = tmpVars;

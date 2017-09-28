@@ -19,7 +19,7 @@
 %token LIST CLEAR SRAND
 %token CALL FUNC
 %token VARIABLE STR
-%token ECHO_T RET IF ELSE WHILE DO BREAK ARRAY
+%token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY
 %token INC DEC
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ
 
@@ -72,6 +72,7 @@ stmt: ECHO_T echoArgList ';' { STMT($$,ECHO_STMT_T,args,$2.call.args); }
  | DO '{' stmtList '}' WHILE '(' stmtExpr ')' ';' { STMT($$,DO_WHILE_STMT_T,cond,NULL);MEMDUP($$.def.syms->cond,&$7,exp_val_t);$$.def.syms->lsyms=$3.def.syms;$$.def.syms->rsyms=NULL; }
  | BREAK ';' { STMT($$,BREAK_STMT_T,args,NULL); }
  | ARRAY VARIABLE arrayArgList ';' { CALL_ARGS($1.call.args,$2);$1.call.args->next=$3.call.args;STMT($$,ARRAY_STMT_T,args,$1.call.args); }
+ | GLOBAL_T varArgList ';' { STMT($$,GLOBAL_T,args,$2.call.args); }
  | VARIABLE arrayArgList '=' stmtExpr ';' { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
  | VARIABLE INC ';' { STMT($$,INC_STMT_T,val,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t); }
  | VARIABLE DEC ';' { STMT($$,DEC_STMT_T,val,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t); }
@@ -86,6 +87,11 @@ stmt: ECHO_T echoArgList ';' { STMT($$,ECHO_STMT_T,args,$2.call.args); }
  | VARIABLE arrayArgList DIVEQ stmtExpr ';' { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
  | VARIABLE arrayArgList MODEQ stmtExpr ';' { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
  | ';' { STMT($$,NULL_STMT_T,args,NULL); } // 空语句
+;
+varArgList: varArg
+ | varArgList ',' varArg { APPEND($$.call.args,$3.call.args); }
+;
+varArg: VARIABLE { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); }
 ;
 arrayArgList: arrayArg
  | arrayArgList arrayArg { APPEND($$.call.args,$2.call.args); }
@@ -145,7 +151,7 @@ expr: value
  | VARIABLE '(' argList ')' { calc_call(&$$,USER_F,$1.str,0,$3.call.args);free($1.str);calc_free_args($3.call.args); } // 用户自定义函数
 ;
 argList: arg
- | argList ',' arg { call_args_t *args=$$.call.args;while(args->next){args=args->next;}args->next=$3.call.args; }
+ | argList ',' arg { APPEND($$.call.args,$3.call.args); }
 ;
 arg: expr { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); }
 ;
