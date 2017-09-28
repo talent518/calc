@@ -1355,11 +1355,12 @@ int main(int argc, char **argv) {
 		"  email            talent518@yeah.net\n" \
 		"  git URL          https://github.com/talent518/calc.git\n" \
 		"\n" \
-		"    %s -          from stdin input source code.\n" \
-		"    %s -v         Version number.\n" \
-		"    %s -h         This help.\n" \
-		"    %s files...    from file input source code for multiple.\n" \
-		, argv[0], argv[0], argv[0], argv[0], argv[0])
+		"  options:\n" \
+		"    -              from stdin input source code.\n" \
+		"    -v             Version number.\n" \
+		"    -h             This help.\n" \
+		"    files...       from file input source code for multiple.\n" \
+		, argv[0])
 	if(argc > 1) {
 		int i;
 		for(i = 1; i<argc; i++) {
