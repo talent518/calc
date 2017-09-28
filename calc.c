@@ -1208,7 +1208,7 @@ void calc_free_expr(exp_val_t *expr) {
 	switch (expr->type) {
 		case STR_T:
 		case VAR_T: {
-			dprintf("--- FreeExpr: VAR_T/STR_T --- ");
+			dprintf("--- FreeExpr: VAR_T/STR_T ---\n");
 			free(expr->str);
 			break;
 		}
@@ -1218,7 +1218,7 @@ void calc_free_expr(exp_val_t *expr) {
 		case DIV_T:
 		case MOD_T:
 		case POW_T: {
-			dprintf("--- FreeExpr: ADD_T/.../POW_T --- ");
+			dprintf("--- FreeExpr: ADD_T/.../POW_T ---\n");
 			calc_free_expr(expr->left);
 			calc_free_expr(expr->right);
 
@@ -1228,17 +1228,17 @@ void calc_free_expr(exp_val_t *expr) {
 		}
 		case ABS_T:
 		case MINUS_T: {
-			dprintf("--- FreeExpr: ABS_T/MINUS_T --- ");
+			dprintf("--- FreeExpr: ABS_T/MINUS_T ---\n");
 			calc_free_expr(expr->left);
 			
 			free(expr->left);
 			break;
 		}
 		case FUNC_T: {
-			dprintf("--- FreeExpr: FUNC_T --- ");
+			dprintf("--- FreeExpr: FUNC_T ---\n");
 			calc_free_args(expr->call.args);
 			if(expr->call.type == USER_F) {
-				printf("--- FreeExpr: USER_F --- ");
+				dprintf("--- FreeExpr: USER_F ---\n");
 				free(expr->call.name);
 			}
 			break;
@@ -1249,7 +1249,7 @@ void calc_free_expr(exp_val_t *expr) {
 		case LOGIC_LE_T:
 		case LOGIC_EQ_T:
 		case LOGIC_NE_T: {
-			dprintf("--- FreeExpr: LOGIC_??_T --- ");
+			dprintf("--- FreeExpr: LOGIC_??_T ---\n");
 			calc_free_expr(expr->left);
 			calc_free_expr(expr->right);
 			
@@ -1258,7 +1258,7 @@ void calc_free_expr(exp_val_t *expr) {
 			break;
 		}
 		case IF_T: {
-			dprintf("--- FreeExpr: IF_T --- ");
+			dprintf("--- FreeExpr: IF_T ---\n");
 			calc_free_expr(expr->cond);
 			calc_free_expr(expr->left);
 			calc_free_expr(expr->right);
@@ -1269,7 +1269,7 @@ void calc_free_expr(exp_val_t *expr) {
 			break;
 		}
 		case ARRAY_T: {
-			dprintf("--- FreeExpr: ARRAY_T --- ");
+			dprintf("--- FreeExpr: ARRAY_T ---\n");
 			calc_free_args(expr->call.args);
 			free(expr->call.name);
 			break;
@@ -1292,7 +1292,7 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 void call_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
-			dprintf("--- FreeVars: ARRAY_T(%08x) ---\n", expr->arrayArgs);
+			dprintf("--- FreeVars: ARRAY_T ---\n");
 			calc_array_free(expr, expr->arrayArgs);
 			calc_free_args(expr->arrayArgs);
 			break;

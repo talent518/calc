@@ -144,7 +144,7 @@ struct _func_symbol_t {
 };
 
 extern int yylineno;
-extern size_t yyleng;
+extern int yyleng;
 extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
@@ -180,8 +180,6 @@ void seed_rand();
 void yyerror(char *s, ...);
 
 #define YYSTYPE exp_val_t
-
-//#define DEBUG
 
 #ifdef DEBUG
 #define dprintf(...) printf(__VA_ARGS__)

@@ -1,7 +1,11 @@
 CC = gcc
 
-CFLAGS = -O3 -g -DYYSTYPE_IS_DECLARED
-LFLAGS = -lm
+CC_FLAGS = -O3 -DYYSTYPE_IS_DECLARED $(CFLAGS)
+CL_FLAGS = -lm $(LFLAGS)
+
+TOOLS_DIR = $(PWD)/tools
+BISON_FN = bison-3.0.4
+FLEX_FN = flex-2.6.4
 
 all: calc
 
@@ -17,21 +21,46 @@ test2: calc
 
 calc: parser.o scanner.o zend_hash.o calc.o
 	@echo $@
-	@$(CC) $(CFLAGS) -o $@ $? $(LFLAGS)
+	@$(CC) $(CC_FLAGS) -o $@ $? $(CL_FLAGS)
 
-parser.c: parser.y
-	@echo $?
-	@bison -v -d -o$@ $?
+parser.c: ./tools/bin/bison
+	@echo parser.y
+	@./tools/bin/bison -v -d -o$@ parser.y
 
-scanner.c: scanner.l
-	@echo $?
-	@flex -o$@ $?
+scanner.c: ./tools/bin/flex
+	@echo scanner.l
+	@./tools/bin/flex -o$@ scanner.l
 
 %.o: %.c
 	@echo $?
-	@$(CC) $(CFLAGS) -o $@ -c $?
+	@$(CC) $(CC_FLAGS) -o $@ -c $?
 
 clean:
 	@echo $@
 	@rm -f calc calc.exe calc.exe.stackdump parser.c parser.h scanner.c *.o *.output
+
+./tools/build:
+	@mkdir ./tools/build
+
+./tools/build/$(BISON_FN):  ./tools/build
+	@tar -xvf ./tools/$(BISON_FN).tar.gz -C ./tools/build
+
+./tools/build/$(BISON_FN)/Makefile: ./tools/build/$(BISON_FN)
+	@sh -c "cd ./tools/build/$(BISON_FN) && ./configure --prefix=$(TOOLS_DIR)"
+
+./tools/build/$(FLEX_FN):  ./tools/build
+	@tar -xvf ./tools/$(FLEX_FN).tar.gz -C ./tools/build
+
+./tools/build/$(FLEX_FN)/Makefile: ./tools/build/$(FLEX_FN)
+	@sh -c "cd ./tools/build/$(FLEX_FN) && ./configure --prefix=$(TOOLS_DIR)"
+
+./tools/bin/bison:
+	@echo build bison
+	@sh -c "make ./tools/build/$(BISON_FN)/Makefile"
+	@sh -c "cd ./tools/build/$(BISON_FN) && make all install"
+
+./tools/bin/flex:
+	@echo build flex
+	@sh -c "make ./tools/build/$(FLEX_FN)/Makefile"
+	@sh -c "cd ./tools/build/$(FLEX_FN) && make all install"
 
