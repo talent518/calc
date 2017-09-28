@@ -888,6 +888,14 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 			case BREAK_STMT_T: {
 				return BREAK_STATUS;
 			}
+			case LIST_STMT_T: {
+				LIST_STMT("--- list in func ---\n", ZEND_HASH_APPLY_KEEP);
+				break;
+			}
+			case CLEAR_STMT_T: {
+				LIST_STMT("--- clear in func ---\n", ZEND_HASH_APPLY_REMOVE);
+				break;
+			}
 			case ARRAY_STMT_T: {
 				exp_val_t val;
 				call_args_t *callArgs = syms->args->next;

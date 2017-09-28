@@ -37,8 +37,8 @@
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist LIST ';' { printf("list\n");zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, ZEND_HASH_APPLY_KEEP); }
- | calclist CLEAR ';' { printf("clear\n");zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, ZEND_HASH_APPLY_REMOVE); }
+ | calclist LIST ';' { LIST_STMT("--- list ---\n", ZEND_HASH_APPLY_KEEP); }
+ | calclist CLEAR ';' { LIST_STMT("--- clear ---\n", ZEND_HASH_APPLY_REMOVE); }
  | calclist VARIABLE '=' expr ';' { ASSIGNMENT_STATEMENT((&$2),(&$4));free($2.str); }
  | calclist ECHO_T echo ';' { /* echo expr/str */ }
  | calclist FUNC VARIABLE '(' ')' '{' '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def)); }
@@ -71,6 +71,8 @@ stmt: ECHO_T echoArgList ';' { STMT($$,ECHO_STMT_T,args,$2.call.args); }
  | WHILE '(' stmtExpr ')' '{' stmtList '}' { STMT($$,WHILE_STMT_T,cond,NULL);MEMDUP($$.def.syms->cond,&$3,exp_val_t);$$.def.syms->lsyms=$6.def.syms;$$.def.syms->rsyms=NULL; }
  | DO '{' stmtList '}' WHILE '(' stmtExpr ')' ';' { STMT($$,DO_WHILE_STMT_T,cond,NULL);MEMDUP($$.def.syms->cond,&$7,exp_val_t);$$.def.syms->lsyms=$3.def.syms;$$.def.syms->rsyms=NULL; }
  | BREAK ';' { STMT($$,BREAK_STMT_T,args,NULL); }
+ | LIST ';' { STMT($$,LIST_STMT_T,args,NULL); }
+ | CLEAR ';' { STMT($$,CLEAR_STMT_T,args,NULL); }
  | ARRAY VARIABLE arrayArgList ';' { CALL_ARGS($1.call.args,$2);$1.call.args->next=$3.call.args;STMT($$,ARRAY_STMT_T,args,$1.call.args); }
  | GLOBAL_T varArgList ';' { STMT($$,GLOBAL_T,args,$2.call.args); }
  | VARIABLE arrayArgList '=' stmtExpr ';' { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }

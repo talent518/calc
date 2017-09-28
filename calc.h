@@ -50,6 +50,8 @@ typedef enum _symbol_enum_t {
 	WHILE_STMT_T, // while(expr) { stmtlist }
 	DO_WHILE_STMT_T, // do { stmtlist } while(expr)
 	BREAK_STMT_T, // break;
+	LIST_STMT_T, // list;
+	CLEAR_STMT_T, // clear;
 	ARRAY_STMT_T, // array var[int][int]...
 	INC_STMT_T, // increment var++
 	DEC_STMT_T, // decrement var--
@@ -175,6 +177,8 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 
 void call_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
+
+#define LIST_STMT(info, t) printf(info);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 void seed_rand();
 void yyerror(char *s, ...);

@@ -4,6 +4,9 @@ func gvars(as,ar=23) {
 	a1 = 1;
 	a2 = 2;
 	a3 = 3;
+	a4 = 4;
+	
+	list;
 }
 
 gvars(4);
