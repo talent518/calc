@@ -12,3 +12,6 @@ func gvars(as,ar=23) {
 gvars(4);
 
 list;
+
+include "exp.txt";
+

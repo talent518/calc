@@ -22,6 +22,7 @@
 %token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY
 %token INC DEC
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ
+%token INCLUDE
 
 %nonassoc UMINUS
 %nonassoc IFX
@@ -51,6 +52,7 @@ calclist:
  | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
  | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str); } // 用户自定义函数
  | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args); } // 用户自定义函数
+ | calclist INCLUDE STR ';' { FILE *fp = fopen($3.str, "r");if(fp) { FILE *sfp = yyin;yyrestart(fp);yyparse();fclose(fp);yyin = sfp; } else { yyerror("File \"%s\" not found!\n"); } free($3.str); }
 ;
 
 /************************ 函数语法 ************************/

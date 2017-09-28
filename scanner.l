@@ -57,7 +57,6 @@ inline void setval(exp_val_t *val) {
 			break;
 	}
 }
-
 %}
 
 %%
@@ -124,6 +123,7 @@ inline void setval(exp_val_t *val) {
 "while"                                        { return WHILE; }
 "do"                                           { return DO; }
 "break"                                        { return BREAK; }
+"include"                                      { return INCLUDE; }
 ([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { setval(&yylval);return NUMBER; }
 [a-zA-Z][a-zA-Z0-9_]*                          { yylval.type=VAR_T;yylval.str=strdup(yytext);return VARIABLE; }
 \"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);return STR; }
@@ -131,3 +131,4 @@ inline void setval(exp_val_t *val) {
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 
 %%
+

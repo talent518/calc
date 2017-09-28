@@ -191,6 +191,8 @@ void yyerror(char *s, ...);
 #define dprintf(...)
 #endif
 
+extern FILE *yyin, *yyout;
+void yyrestart(FILE*);
 int yylex (void);
 int yylex_destroy();
 
