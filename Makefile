@@ -13,19 +13,20 @@ all: calc
 
 test: calc
 	@echo $@
-	@./calc < exp.txt
+	@./calc exp.txt
 
 test2: calc
 	@echo $@
-	@./calc < exp2.txt
+	@./calc exp2.txt
 
 test3: calc
 	@echo $@
-	@./calc < exp3.txt
+	@./calc exp3.txt
 
 calc: parser.o scanner.o zend_hash.o calc.o
 	@echo $@
 	@$(CC) $(CC_FLAGS) -o $@ $? $(CL_FLAGS)
+	@sh -c "echo version `./calc -v`"
 
 parser.c: ./tools/bin/bison
 	@echo parser.y

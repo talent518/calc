@@ -1349,7 +1349,44 @@ int main(int argc, char **argv) {
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
-	yyparse();
+	#define USAGE() printf("Usage: %s { -v | -h | - | files.. }\n" \
+		"\n" \
+		"  author           zhang bao cai\n" \
+		"  email            talent518@yeah.net\n" \
+		"  git URL          https://github.com/talent518/calc.git\n" \
+		"\n" \
+		"    %s -          from stdin input source code.\n" \
+		"    %s -v         Version number.\n" \
+		"    %s -h         This help.\n" \
+		"    %s files...    from file input source code for multiple.\n" \
+		, argv[0], argv[0], argv[0], argv[0], argv[0])
+	if(argc > 1) {
+		int i;
+		for(i = 1; i<argc; i++) {
+			if(argv[i][0] == '-') {
+				if(argv[i][1]) {
+					switch(argv[i][1]) {
+						case 'v':
+							printf("v1.0\n");
+							break;
+						case 'h':
+							USAGE();
+							break;
+						default:
+							break;
+					}
+				} else {
+					yyparse();
+					break;
+				}
+			} else {
+				INC_FILE(argv[i]);
+			}
+		}
+	} else {
+		USAGE();
+	}
+	
 	yylex_destroy();
 
 	zend_hash_destroy(&vars);

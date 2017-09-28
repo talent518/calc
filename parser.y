@@ -11,6 +11,7 @@
 #define APPEND(args,val) args->tail->next=val;args->tail=val
 #define STMT(o,t,k,v) o.def.syms=malloc(sizeof(func_symbol_t));o.def.syms->type=t;o.def.syms->k=v;o.def.syms->lineno=yylineno;o.def.syms->tail=o.def.syms;o.def.syms->next=NULL
 
+char *curFileName = NULL;
 %}
 
 /* declare tokens */
@@ -52,7 +53,7 @@ calclist:
  | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
  | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str); } // 用户自定义函数
  | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args); } // 用户自定义函数
- | calclist INCLUDE STR ';' { FILE *fp = fopen($3.str, "r");if(fp) { FILE *sfp = yyin;yyrestart(fp);yyparse();fclose(fp);yyin = sfp; } else { yyerror("File \"%s\" not found!\n"); } free($3.str); }
+ | calclist INCLUDE STR ';' { INC_FILE($3.str); free($3.str); }
 ;
 
 /************************ 函数语法 ************************/

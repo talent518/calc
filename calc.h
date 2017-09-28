@@ -191,6 +191,23 @@ void yyerror(char *s, ...);
 #define dprintf(...)
 #endif
 
+#define INC_FILE(fn) do { \
+		FILE *fp = fopen(fn, "r"); \
+		if(fp) { \
+			FILE *sfp = yyin; \
+			yyrestart(fp); \
+			char *_fn = curFileName; \
+			curFileName = fn; \
+			yyparse(); \
+			curFileName = _fn; \
+			fclose(fp); \
+			yyin = sfp; \
+		} else { \
+			yyerror("File \"%s\" not found!\n"); \
+		} \
+	} while(0)
+
+extern char *curFileName;
 extern FILE *yyin, *yyout;
 void yyrestart(FILE*);
 int yylex (void);
