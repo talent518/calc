@@ -150,7 +150,7 @@ argList: arg
 arg: expr { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); }
 ;
 value: number
- | VARIABLE { exp_val_t *ptr=NULL;zend_hash_find(&vars, $1.str, strlen($1.str), (void**)&ptr);free($1.str);if(ptr) {memcpy(&$$, ptr, sizeof(exp_val_t));} else {memset(&$$, 0, sizeof(exp_val_t));} }
+ | VARIABLE { exp_val_t *ptr=NULL;zend_hash_find(&vars, $1.str, strlen($1.str), (void**)&ptr);free($1.str);if(ptr) {memcpy(&$$, ptr, sizeof(exp_val_t));} else {memset(&$$, 0, sizeof(exp_val_t));} free($1.str); }
 ;
 number: NUMBER
  | CONST_RAND_MAX

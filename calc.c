@@ -498,11 +498,7 @@ void calc_free_args(call_args_t *args) {
 	call_args_t *tmpArgs;
 
 	while (args) {
-		switch (args->val.type) {
-		case VAR_T:
-			free(args->val.str);
-			break;
-		}
+		calc_free_expr(&args->val);
 		tmpArgs = args;
 		args = args->next;
 		free(tmpArgs);
@@ -513,13 +509,82 @@ void calc_free_syms(func_symbol_t *syms) {
 	func_symbol_t *tmpSyms;
 
 	while (syms) {
+		linenostack[linenostacktop].lineno = syms->lineno;
 		switch (syms->type) {
-		case ECHO_STMT_T: {
-			calc_free_args(syms->args);
-			break;
-		}
+			case ECHO_STMT_T: {
+				calc_free_args(syms->args);
+				break;
+			}
+			case RET_STMT_T: {
+				calc_free_expr(syms->expr);
+				free(syms->expr);
+				break;
+			}
+			case IF_STMT_T: {
+				calc_free_expr(syms->cond);
+				free(syms->cond);
+				calc_free_syms(syms->lsyms);
+				calc_free_syms(syms->rsyms);
+				break;
+			}
+			case WHILE_STMT_T: {
+				calc_free_expr(syms->cond);
+				free(syms->cond);
+				calc_free_syms(syms->lsyms);
+				break;
+			}
+			case DO_WHILE_STMT_T: {
+				calc_free_expr(syms->cond);
+				free(syms->cond);
+				calc_free_syms(syms->lsyms);
+				break;
+			}
+			case BREAK_STMT_T: {
+				// none EXPR
+				break;
+			}
+			case ARRAY_STMT_T: {
+				free(syms->args->val.str);
+				calc_free_args(syms->args->next);
+				free(syms->args);
+				break;
+			}
+			case INC_STMT_T: {
+				free(syms->args->val.str);
+				free(syms->args);
+				break;
+			}
+			case DEC_STMT_T: {
+				free(syms->args->val.str);
+				free(syms->args);
+				break;
+			}
+			case ASSIGN_STMT_T:
+			case ADDEQ_STMT_T:
+			case SUBEQ_STMT_T:
+			case MULEQ_STMT_T:
+			case DIVEQ_STMT_T:
+			case MODEQ_STMT_T: {
+				calc_free_expr(syms->val);
+				
+				switch (syms->var->type) {
+					case VAR_T: {
+						free(syms->args->val.str);
+						break;
+					}
+					case ARRAY_T: {
+						free(syms->var->call.name);
+						calc_free_args(syms->var->call.args);
+						break;
+					}
+				}
+				free(syms->var);
+				free(syms->val);
+				break;
+			}
 		}
 
+nextStmt:
 		tmpSyms = syms;
 		syms = syms->next;
 		free(tmpSyms);
@@ -534,7 +599,7 @@ void calc_free_func(func_def_f *def) {
 	while (args) {
 		tmpArgs = args;
 		args = args->next;
-		//free(tmpArgs->name);
+		free(tmpArgs->name);
 		free(tmpArgs);
 	}
 
@@ -1139,10 +1204,11 @@ void seed_rand() {
 	srand((unsigned int) (tp.tv_sec + tp.tv_usec));
 }
 
-void call_free_expr(exp_val_t *expr) {
+void calc_free_expr(exp_val_t *expr) {
 	switch (expr->type) {
+		case STR_T:
 		case VAR_T: {
-			dprintf("--- Free: VAR_T --- ");
+			dprintf("--- FreeExpr: VAR_T/STR_T --- ");
 			free(expr->str);
 			break;
 		}
@@ -1152,9 +1218,9 @@ void call_free_expr(exp_val_t *expr) {
 		case DIV_T:
 		case MOD_T:
 		case POW_T: {
-			dprintf("--- Free: ADD_T/.../POW_T --- ");
-			call_free_expr(expr->left);
-			call_free_expr(expr->right);
+			dprintf("--- FreeExpr: ADD_T/.../POW_T --- ");
+			calc_free_expr(expr->left);
+			calc_free_expr(expr->right);
 
 			free(expr->left);
 			free(expr->right);
@@ -1162,15 +1228,19 @@ void call_free_expr(exp_val_t *expr) {
 		}
 		case ABS_T:
 		case MINUS_T: {
-			dprintf("--- Free: ABS_T/MINUS_T --- ");
-			call_free_expr(expr->left);
+			dprintf("--- FreeExpr: ABS_T/MINUS_T --- ");
+			calc_free_expr(expr->left);
 			
 			free(expr->left);
 			break;
 		}
 		case FUNC_T: {
-			dprintf("--- Free: FUNC_T --- ");
+			dprintf("--- FreeExpr: FUNC_T --- ");
 			calc_free_args(expr->call.args);
+			if(expr->call.type == USER_F) {
+				printf("--- FreeExpr: USER_F --- ");
+				free(expr->call.name);
+			}
 			break;
 		}
 		case LOGIC_GT_T:
@@ -1179,19 +1249,19 @@ void call_free_expr(exp_val_t *expr) {
 		case LOGIC_LE_T:
 		case LOGIC_EQ_T:
 		case LOGIC_NE_T: {
-			dprintf("--- Free: LOGIC_??_T --- ");
-			call_free_expr(expr->left);
-			call_free_expr(expr->right);
+			dprintf("--- FreeExpr: LOGIC_??_T --- ");
+			calc_free_expr(expr->left);
+			calc_free_expr(expr->right);
 			
 			free(expr->left);
 			free(expr->right);
 			break;
 		}
 		case IF_T: {
-			dprintf("--- Free: IF_T --- ");
-			call_free_expr(expr->cond);
-			call_free_expr(expr->left);
-			call_free_expr(expr->right);
+			dprintf("--- FreeExpr: IF_T --- ");
+			calc_free_expr(expr->cond);
+			calc_free_expr(expr->left);
+			calc_free_expr(expr->right);
 
 			free(expr->cond);
 			free(expr->left);
@@ -1199,7 +1269,9 @@ void call_free_expr(exp_val_t *expr) {
 			break;
 		}
 		case ARRAY_T: {
-			dprintf("--- Free: ARRAY_T --- ");
+			dprintf("--- FreeExpr: ARRAY_T --- ");
+			calc_free_args(expr->call.args);
+			free(expr->call.name);
 			break;
 		}
 	}
@@ -1211,7 +1283,7 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 		if(ptr->array[i].type == ARRAY_T && args->next) {
 			calc_array_free(&ptr->array[i], args->next);
 		} else {
-			call_free_expr(&ptr->array[i]);
+			calc_free_expr(&ptr->array[i]);
 		}
 	}
 	free(ptr->array);
@@ -1220,13 +1292,13 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 void call_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
-			dprintf("--- Free: ARRAY_T(%08x) ---\n", expr->arrayArgs);
+			dprintf("--- FreeVars: ARRAY_T(%08x) ---\n", expr->arrayArgs);
 			calc_array_free(expr, expr->arrayArgs);
 			calc_free_args(expr->arrayArgs);
 			break;
 		}
 		default: {
-			dprintf("--- Free: %s ---\n", types[expr->type - INT_T]);
+			dprintf("--- FreeVars: %s ---\n", types[expr->type - INT_T]);
 		}
 	}
 	//free(expr);
@@ -1237,6 +1309,7 @@ int main(int argc, char **argv) {
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
 	yyparse();
+	yylex_destroy();
 
 	zend_hash_destroy(&vars);
 	zend_hash_destroy(&funcs);
