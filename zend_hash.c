@@ -78,8 +78,8 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 
 #define UPDATE_DATA(ht, p, _pData, nDataSize)											\
 	if (nDataSize <= 0) {																\
-		(p)->pData = &(p)->pDataPtr;													\
-		(p)->pDataPtr=NULL;													\
+		(p)->pData = _pData;															\
+		(p)->pDataPtr = NULL;															\
 	} else if (nDataSize <= sizeof(void*)) {											\
 		if ((p)->pData != &(p)->pDataPtr) {												\
 			free((p)->pData);															\
@@ -99,7 +99,7 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 
 #define INIT_DATA(ht, p, _pData, nDataSize);								\
 	if (nDataSize <= 0) {													\
-		(p)->pData = &(p)->pDataPtr;										\
+		(p)->pData = _pData;												\
 		(p)->pDataPtr=NULL;													\
 	} else if (nDataSize <= sizeof(void*)) {								\
 		memcpy(&(p)->pDataPtr, (_pData), nDataSize);						\
@@ -149,7 +149,7 @@ static zend_always_inline void i_zend_hash_bucket_delete(HashTable *ht, Bucket *
 	if (ht->pDestructor) {
 		ht->pDestructor(p->pData);
 	}
-	if (p->pData != &p->pDataPtr) {
+	if (p->pDataPtr && p->pData != &p->pDataPtr) {
 		free(p->pData);
 	}
 	free(p);
@@ -471,7 +471,7 @@ void zend_hash_destroy(HashTable *ht)
 		if (ht->pDestructor) {
 			ht->pDestructor(q->pData);
 		}
-		if (q->pData != &q->pDataPtr) {
+		if (q->pDataPtr && q->pData != &q->pDataPtr) {
 			free(q->pData);
 		}
 		free(q);
@@ -503,7 +503,7 @@ void zend_hash_clean(HashTable *ht)
 		if (ht->pDestructor) {
 			ht->pDestructor(q->pData);
 		}
-		if (q->pData != &q->pDataPtr) {
+		if (q->pDataPtr && q->pData != &q->pDataPtr) {
 			free(q->pData);
 		}
 		free(q);

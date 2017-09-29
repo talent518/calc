@@ -73,7 +73,7 @@ calclist:
  | calclist LIST ';' { LIST_STMT("--- list ---\n", ZEND_HASH_APPLY_KEEP); }
  | calclist CLEAR ';' { LIST_STMT("--- clear ---\n", ZEND_HASH_APPLY_REMOVE); }
  | calclist VARIABLE '=' expr ';' { ASSIGNMENT_STATEMENT((&$2),(&$4));free($2.str); }
- | calclist ECHO_T echo ';' { /* echo expr/str */ }
+ | calclist ECHO_T echo ';' { zend_hash_clean(&frees); }
  | calclist FUNC VARIABLE '(' ')' '{' '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def));zend_hash_clean(&frees); }
  | calclist FUNC VARIABLE '(' ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def));zend_hash_clean(&frees); }
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;calc_func_def(&($$.def));zend_hash_clean(&frees); }
@@ -81,10 +81,10 @@ calclist:
  | calclist SRAND ';' { seed_rand(); }
  | calclist SRAND '(' ')' ';' { seed_rand(); }
  | calclist CALL '(' ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
- | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
- | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str); } // 用户自定义函数
- | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args); } // 用户自定义函数
- | calclist INCLUDE STR ';' { INC_FILE($3.str); }
+ | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name);zend_hash_clean(&frees); } // 系统函数
+ | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str);zend_hash_clean(&frees); } // 用户自定义函数
+ | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args);zend_hash_clean(&frees); } // 用户自定义函数
+ | calclist INCLUDE STR ';' { INC_FILE($3.str);zend_hash_clean(&frees); }
 ;
 
 /************************ 函数参数语法 ************************/

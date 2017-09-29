@@ -1357,11 +1357,13 @@ void call_free_vars(exp_val_t *expr) {
 }
 
 #define YYPARSE() while(yyparse()) { \
-		if(!yywrap()) { \
-			vars.pDestructor = free; \
+		frees.pDestructor = free; \
+		if(yywrap()) { \
+			break; \
+		} else { \
 			zend_hash_clean(&frees); \
+			frees.pDestructor = NULL; \
 		} \
-		vars.pDestructor = NULL; \
 	} \
 	break;
 
