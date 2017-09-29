@@ -199,6 +199,7 @@ typedef struct _wrapStack {
 	struct _wrapStack *prev;
 } wrap_stack_t;
 
+extern HashTable frees;
 extern HashTable files;
 extern wrap_stack_t *curWrapStack;
 extern wrap_stack_t *tailWrapStack;
@@ -206,8 +207,9 @@ extern unsigned int includeDeep;
 extern char *curFileName;
 extern FILE *yyin, *yyout;
 
+int yywrap();
 void yyrestart(FILE*);
-int yylex (void);
+int yylex(void);
 int yylex_destroy();
 void yypop_buffer_state(void);
 
@@ -217,8 +219,6 @@ extern int exitCode;
 		yypop_buffer_state(); \
 	}
 
-#define _YYFREE(val) free(&val)
-#define YYFREE _YYFREE(val)
 #define YYERROR_VERBOSE 1
 #define YY_(s) s"\n"
 #include "parser.h"

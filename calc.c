@@ -3,6 +3,7 @@
 HashTable vars;
 HashTable funcs;
 HashTable files;
+HashTable frees;
 
 typedef struct _linenostack {
 	unsigned int lineno;
@@ -1355,12 +1356,18 @@ void call_free_vars(exp_val_t *expr) {
 	//free(expr);
 }
 
-#define YYPARSE() if(yyparse()) { \
-		break; \
+#define YYPARSE() while(yyparse()) { \
+		if(!yywrap()) { \
+			vars.pDestructor = free; \
+			zend_hash_clean(&frees); \
+		} \
+		vars.pDestructor = NULL; \
 	} \
+	break;
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
+	zend_hash_init(&frees, 20, NULL);
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
@@ -1408,7 +1415,7 @@ int main(int argc, char **argv) {
 					yyrestart(fp);
 					YYPARSE();
 				} else {
-					yyerror("File \"%s\" not found!\n");
+					yyerror("File \"%s\" not found!\n", argv[i]);
 				}
 			}
 		}
@@ -1419,6 +1426,7 @@ int main(int argc, char **argv) {
 	yylex_destroy();
 
 	zend_hash_destroy(&files);
+	zend_hash_destroy(&frees);
 	zend_hash_destroy(&vars);
 	zend_hash_destroy(&funcs);
 

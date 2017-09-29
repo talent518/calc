@@ -115,7 +115,7 @@ inline void setval(exp_val_t *val) {
 "echo"                                         { return ECHO_T; }
 "list"                                         { return LIST; }
 "clear"                                        { return CLEAR; }
-"endl"                                         { yylval.type=STR_T;yylval.str=strdup("\n");return STR; }
+"endl"                                         { yylval.type=STR_T;yylval.str=strdup("\n");zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return STR; }
 "func"                                         { return FUNC; }
 "function"                                     { return FUNC; }
 "PI"                                           { return CONST_PI; }
@@ -126,8 +126,8 @@ inline void setval(exp_val_t *val) {
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
 ([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { setval(&yylval);return NUMBER; }
-[a-zA-Z][a-zA-Z0-9_]*                          { yylval.type=VAR_T;yylval.str=strdup(yytext);return VARIABLE; }
-\"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);return STR; }
+[a-zA-Z][a-zA-Z0-9_]*                          { yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return VARIABLE; }
+\"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 

@@ -5,11 +5,11 @@
 
 #define ASSIGNMENT_STATEMENT(var,expr) zend_hash_update(&vars, var->str, strlen(var->str), expr, sizeof(exp_val_t), NULL);
 
-#define MEMDUP(dst,src,type) dst=(type*)malloc(sizeof(type));memcpy(dst,src,sizeof(type))
-#define CALL_ARGS(args,v) args=malloc(sizeof(call_args_t));args->val=v;args->tail=args;args->next=NULL
-#define FUNC_ARGS(args,v) args=malloc(sizeof(func_args_t));args->val=v;args->tail=args;args->next=NULL
+#define MEMDUP(dst,src,type) dst=(type*)malloc(sizeof(type));memcpy(dst,src,sizeof(type));zend_hash_next_index_insert(&frees, dst, 0, NULL)
+#define CALL_ARGS(args,v) args=malloc(sizeof(call_args_t));args->val=v;args->tail=args;args->next=NULL;zend_hash_next_index_insert(&frees, args, 0, NULL)
+#define FUNC_ARGS(args,v) args=malloc(sizeof(func_args_t));args->val=v;args->tail=args;args->next=NULL;zend_hash_next_index_insert(&frees, args, 0, NULL)
 #define APPEND(args,val) args->tail->next=val;args->tail=val
-#define STMT(o,t,k,v) o.def.syms=malloc(sizeof(func_symbol_t));o.def.syms->type=t;o.def.syms->k=v;o.def.syms->lineno=yylineno;o.def.syms->tail=o.def.syms;o.def.syms->next=NULL
+#define STMT(o,t,k,v) o.def.syms=malloc(sizeof(func_symbol_t));o.def.syms->type=t;o.def.syms->k=v;o.def.syms->lineno=yylineno;o.def.syms->tail=o.def.syms;o.def.syms->next=NULL;zend_hash_next_index_insert(&frees, o.def.syms, 0, NULL)
 
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
@@ -74,10 +74,10 @@ calclist:
  | calclist CLEAR ';' { LIST_STMT("--- clear ---\n", ZEND_HASH_APPLY_REMOVE); }
  | calclist VARIABLE '=' expr ';' { ASSIGNMENT_STATEMENT((&$2),(&$4));free($2.str); }
  | calclist ECHO_T echo ';' { /* echo expr/str */ }
- | calclist FUNC VARIABLE '(' ')' '{' '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def)); }
- | calclist FUNC VARIABLE '(' ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def)); }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;calc_func_def(&($$.def)); }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;calc_func_def(&($$.def)); }
+ | calclist FUNC VARIABLE '(' ')' '{' '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def));zend_hash_clean(&frees); }
+ | calclist FUNC VARIABLE '(' ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def));zend_hash_clean(&frees); }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;calc_func_def(&($$.def));zend_hash_clean(&frees); }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' stmtList '}' { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;calc_func_def(&($$.def));zend_hash_clean(&frees); }
  | calclist SRAND ';' { seed_rand(); }
  | calclist SRAND '(' ')' ';' { seed_rand(); }
  | calclist CALL '(' ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
