@@ -60,6 +60,7 @@ typedef enum _symbol_enum_t {
 	MULEQ_STMT_T, // var *= val
 	DIVEQ_STMT_T, // var /= val
 	MODEQ_STMT_T, // var %= val
+	FUNC_STMT_T, // demo(); demo(1,2,3);
 	NULL_STMT_T
 } symbol_enum_t;
 
@@ -191,22 +192,16 @@ void yyerror(char *s, ...);
 #define dprintf(...)
 #endif
 
-#define INC_FILE(fn) do { \
-		FILE *fp = fopen(fn, "r"); \
-		if(fp) { \
-			FILE *sfp = yyin; \
-			yyrestart(fp); \
-			char *_fn = curFileName; \
-			curFileName = fn; \
-			yyparse(); \
-			curFileName = _fn; \
-			fclose(fp); \
-			yyin = sfp; \
-		} else { \
-			yyerror("File \"%s\" not found!\n"); \
-		} \
-	} while(0)
+typedef struct _wrapStack {
+	FILE *fp;
+	char *filename;
+	int lineno;
+	struct _wrapStack *prev;
+} wrap_stack_t;
 
+extern wrap_stack_t *curWrapStack;
+extern wrap_stack_t *tailWrapStack;
+extern unsigned int includeDeep;
 extern char *curFileName;
 extern FILE *yyin, *yyout;
 void yyrestart(FILE*);

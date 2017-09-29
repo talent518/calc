@@ -7,21 +7,13 @@ TOOLS_DIR = $(PWD)/tools
 BISON_FN = bison-3.0.4
 FLEX_FN = flex-2.6.4
 
-all: calc
+all: ./tools/bin/bison ./tools/bin/flex calc
 
 .PHONY:
 
 test: calc
 	@echo $@
-	@./calc exp.txt
-
-test2: calc
-	@echo $@
-	@./calc exp2.txt
-
-test3: calc
-	@echo $@
-	@./calc exp3.txt
+	@./calc exp.txt exp2.txt exp3.txt exp4.txt
 
 calc: parser.o scanner.o zend_hash.o calc.o
 	@echo $@

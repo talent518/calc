@@ -1,0 +1,5 @@
+echo "--- include before ---", endl;
+
+include "exp4-inc.txt";
+
+echo "--- include after ---", endl;

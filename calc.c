@@ -586,6 +586,11 @@ void calc_free_syms(func_symbol_t *syms) {
 				free(syms->val);
 				break;
 			}
+			case FUNC_STMT_T: {
+				calc_free_expr(syms->expr);
+				free(syms->expr);
+				break;
+			}
 		}
 
 nextStmt:
@@ -1080,6 +1085,11 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				}
 				break;
 			}
+			case FUNC_STMT_T: {
+				exp_val_t val;
+				calc_run_expr(&val, syms->expr);
+				break;
+			}
 		}
 
 		nextStmt: syms = syms->next;
@@ -1212,7 +1222,6 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 			if (_argc > def->argc || _argc < def->minArgc) {
 				//printf("minArgc=%d, _argc=%d, argc=%d\n", def->minArgc, _argc, def->argc);
 				yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d. %s", name, def->argc, def->minArgc, _argc);
-				exit(0);
 			}
 
 			dprintf("call user function for ");
@@ -1223,12 +1232,12 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 			call_func_run(ret, def, args);
 			linenostacktop--;
 		} else {
-			dprintf("undefined user function for %s\n", name);
+			yyerror("undefined user function for %s\n", name);
 		}
 		break;
 	}
 	default:
-		dprintf("undefined system function for %s\n", name);
+		yyerror("undefined system function for %s\n", name);
 		break;
 	}
 }
@@ -1377,11 +1386,23 @@ int main(int argc, char **argv) {
 							break;
 					}
 				} else {
+					yyrestart(stdin);
 					yyparse();
 					break;
 				}
 			} else {
-				INC_FILE(argv[i]);
+				FILE *fp = fopen(argv[i], "r");
+				if(fp) {
+					dprintf("==========================\n");
+					dprintf("BEGIN INPUT: %s\n", argv[i]);
+					dprintf("--------------------------\n");
+					curFileName = argv[i];
+					yylineno = 1;
+					yyrestart(fp);
+					yyparse();
+				} else {
+					yyerror("File \"%s\" not found!\n");
+				}
 			}
 		}
 	} else {
@@ -1402,8 +1423,9 @@ void yyerror(char *s, ...) {
 
 	int i;
 	for(i=0; i<=linenostacktop; i++) {
-		fprintf(stderr, "Line %d in user function %s\n", linenostack[i].lineno, linenostack[i].funcname);
+		fprintf(stderr, "Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
 	}
+	fprintf(stderr, "-----------------------------------\n");
 
 	va_list ap;
 
@@ -1411,7 +1433,6 @@ void yyerror(char *s, ...) {
 	vfprintf(stderr, s, ap);
 	va_end(ap);
 	
-	fprintf(stderr, "\n");
 	fprintf(stderr, "===================================\n");
 }
 

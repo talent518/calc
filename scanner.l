@@ -1,4 +1,5 @@
-%option noyywrap yylineno
+%option yywrap yylineno
+%option lex-compat
 
 %{
 
@@ -132,3 +133,28 @@ inline void setval(exp_val_t *val) {
 
 %%
 
+int yywrap() {
+	dprintf("--------------------------\n");
+	dprintf("END INPUT: %s\n", curFileName);
+	dprintf("==========================\n");
+
+	if(includeDeep>0) {
+		includeDeep--;
+		free(curFileName);
+
+		curFileName = tailWrapStack->filename;
+		yylineno = tailWrapStack->lineno;
+
+		wrap_stack_t *ptr = tailWrapStack;
+
+		tailWrapStack = tailWrapStack->prev;
+
+		free(ptr);
+
+		yypop_buffer_state();
+
+		return 0;
+	} else {
+		return 1;
+	}
+}

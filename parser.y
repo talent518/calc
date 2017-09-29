@@ -11,7 +11,34 @@
 #define APPEND(args,val) args->tail->next=val;args->tail=val
 #define STMT(o,t,k,v) o.def.syms=malloc(sizeof(func_symbol_t));o.def.syms->type=t;o.def.syms->k=v;o.def.syms->lineno=yylineno;o.def.syms->tail=o.def.syms;o.def.syms->next=NULL
 
-char *curFileName = NULL;
+void yypush_buffer_state ( void* );
+void* yy_create_buffer ( FILE *file, int size );
+
+#define INC_FILE(fn) do { \
+		FILE *fp = fopen(fn, "r"); \
+		if(fp) { \
+			wrap_stack_t *_wrap_stack = (wrap_stack_t*)malloc(sizeof(wrap_stack_t)); \
+			_wrap_stack->prev = tailWrapStack; \
+			_wrap_stack->fp = yyin; \
+			_wrap_stack->filename = curFileName; \
+			_wrap_stack->lineno = yylineno; \
+			curFileName = fn; \
+			yylineno = 1; \
+			tailWrapStack = _wrap_stack; \
+			includeDeep++; \
+			dprintf("--------------------------\n"); \
+			dprintf("END INPUT: %s\n", fn); \
+			dprintf("==========================\n"); \
+			yypush_buffer_state(yy_create_buffer(fp, 16384)); \
+		} else { \
+			yyerror("File \"%s\" not found!\n"); \
+		} \
+	} while(0)
+
+wrap_stack_t *curWrapStack = NULL;
+wrap_stack_t *tailWrapStack = NULL;
+unsigned int includeDeep = 0;
+char *curFileName = "1";
 %}
 
 /* declare tokens */
@@ -53,16 +80,17 @@ calclist:
  | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name); } // 系统函数
  | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str); } // 用户自定义函数
  | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args); } // 用户自定义函数
- | calclist INCLUDE STR ';' { INC_FILE($3.str); free($3.str); }
+ | calclist INCLUDE STR ';' { INC_FILE($3.str); }
 ;
 
-/************************ 函数语法 ************************/
+/************************ 函数参数语法 ************************/
 funcArgList:  funcArg
  | funcArgList ',' funcArg { APPEND($$.def.args,$3.def.args); }
 ;
 funcArg: VARIABLE '=' number { $$.type=FUNC_DEF_T;FUNC_ARGS($$.def.args,$3);$$.def.args->name = $1.str; }
  | VARIABLE { $$.type=FUNC_DEF_T;$1.type=NULL_T;FUNC_ARGS($$.def.args,$1);$$.def.args->name = $1.str; }
 ;
+/************************ 函数语句语法 ************************/
 stmtList: stmt
  | stmtList stmt { APPEND($$.def.syms,$2.def.syms); }
 ;
@@ -91,6 +119,7 @@ stmt: ECHO_T echoArgList ';' { STMT($$,ECHO_STMT_T,args,$2.call.args); }
  | VARIABLE arrayArgList MULEQ stmtExpr ';' { STMT($$,MULEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
  | VARIABLE arrayArgList DIVEQ stmtExpr ';' { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
  | VARIABLE arrayArgList MODEQ stmtExpr ';' { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; }
+ | callExpr ';' { STMT($$,FUNC_STMT_T,args,NULL);MEMDUP($$.def.syms->expr,&$1,exp_val_t); }
  | ';' { STMT($$,NULL_STMT_T,args,NULL); } // 空语句
 ;
 varArgList: varArg
@@ -125,7 +154,9 @@ stmtExpr: VARIABLE
  | VARIABLE arrayArgList { $$.type=ARRAY_T;$$.call.name=$1.str;$$.call.args=$2.call.args; } // 用户自定义函数
  | CALL '(' ')' { $$=$1;$$.call.args=NULL; } // 系统函数
  | CALL '(' stmtExprArgList ')' { $$=$1;$$.call.args=$3.call.args; } // 系统函数
- | VARIABLE '(' ')' { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL; } // 用户自定义函数
+ | callExpr
+;
+callExpr: VARIABLE '(' ')' { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL; } // 用户自定义函数
  | VARIABLE '(' stmtExprArgList ')' { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=$3.call.args; } // 用户自定义函数
 ;
 stmtExprArgList: stmtExprArg
