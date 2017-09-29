@@ -1400,7 +1400,7 @@ int main(int argc, char **argv) {
 				if(argv[i][1]) {
 					switch(argv[i][1]) {
 						case 'v':
-							printf("v1.0\n");
+							printf("v1.1\n");
 							break;
 						case 'h':
 							USAGE();
