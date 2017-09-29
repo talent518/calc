@@ -182,7 +182,7 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args);
 #define LIST_STMT(info, t) printf(info);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 void seed_rand();
-void yyerror(char *s, ...);
+void yyerror(const char *s, ...);
 
 #define YYSTYPE exp_val_t
 
@@ -217,4 +217,8 @@ extern int exitCode;
 		yypop_buffer_state(); \
 	}
 
+#define _YYFREE(val) free(&val)
+#define YYFREE _YYFREE(val)
+#define YYERROR_VERBOSE 1
+#define YY_(s) s"\n"
 #include "parser.h"

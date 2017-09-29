@@ -1355,6 +1355,10 @@ void call_free_vars(exp_val_t *expr) {
 	//free(expr);
 }
 
+#define YYPARSE() if(yyparse()) { \
+		break; \
+	} \
+
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
@@ -1389,7 +1393,7 @@ int main(int argc, char **argv) {
 					}
 				} else {
 					yyrestart(stdin);
-					yyparse();
+					YYPARSE();
 					break;
 				}
 			} else {
@@ -1402,7 +1406,7 @@ int main(int argc, char **argv) {
 					yylineno = 1;
 					zend_hash_add(&files, argv[i], strlen(argv[i]), NULL, 0, NULL);
 					yyrestart(fp);
-					yyparse();
+					YYPARSE();
 				} else {
 					yyerror("File \"%s\" not found!\n");
 				}
@@ -1421,9 +1425,9 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-void yyerror(char *s, ...) {
+void yyerror(const char *s, ...) {
 	fprintf(stderr, "===================================\n");
-	fprintf(stderr, "There is an error in line %d: \n", yylineno);
+	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
 	int i;
 	for(i=0; i<=linenostacktop; i++) {
@@ -1439,4 +1443,3 @@ void yyerror(char *s, ...) {
 	
 	fprintf(stderr, "===================================\n");
 }
-
