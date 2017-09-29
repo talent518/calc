@@ -1356,16 +1356,24 @@ void call_free_vars(exp_val_t *expr) {
 	//free(expr);
 }
 
+#ifdef DEBUG
+static void free_frees(char *s) {
+	printf("FREES: %s\n", s);
+	free(s);
+}
+#else
+	#define free_frees free
+#endif
+
 #define YYPARSE() while(yyparse()) { \
-		frees.pDestructor = free; \
+		frees.pDestructor = (dtor_func_t)free_frees; \
 		if(yywrap()) { \
 			break; \
 		} else { \
 			zend_hash_clean(&frees); \
 			frees.pDestructor = NULL; \
 		} \
-	} \
-	break;
+	}
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
@@ -1416,6 +1424,7 @@ int main(int argc, char **argv) {
 					zend_hash_add(&files, argv[i], strlen(argv[i]), NULL, 0, NULL);
 					yyrestart(fp);
 					YYPARSE();
+					fclose(fp);
 				} else {
 					yyerror("File \"%s\" not found!\n", argv[i]);
 				}

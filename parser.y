@@ -33,9 +33,12 @@ void* yy_create_buffer ( FILE *file, int size );
 				yypush_buffer_state(yy_create_buffer(fp, 16384)); \
 			} else { \
 				yyerror("File \"%s\" already included!\n", fn); \
+				fclose(fp); \
+				free(fn); \
 			} \
 		} else { \
-			yyerror("File \"%s\" not found!\n"); \
+			yyerror("File \"%s\" not found!\n", fn); \
+			free(fn); \
 		} \
 	} while(0)
 
@@ -84,7 +87,34 @@ calclist:
  | calclist CALL '(' argList ')' ';' { printf("warning: System function %s is not in this call\n", $$.call.name);zend_hash_clean(&frees); } // 系统函数
  | calclist VARIABLE '(' ')' ';' { calc_call(&$$,USER_F,$2.str,0,NULL);free($2.str);zend_hash_clean(&frees); } // 用户自定义函数
  | calclist VARIABLE '(' argList ')' ';' { calc_call(&$$,USER_F,$2.str,0,$4.call.args);free($2.str);calc_free_args($4.call.args);zend_hash_clean(&frees); } // 用户自定义函数
- | calclist INCLUDE STR ';' { INC_FILE($3.str);zend_hash_clean(&frees); }
+ | calclist INCLUDE STR ';' {
+		FILE *fp = fopen($3.str, "r");
+		if(fp) {
+			if (zend_hash_add(&files, $3.str, strlen($3.str), NULL, 0, NULL) == SUCCESS) {
+				wrap_stack_t *_wrap_stack = (wrap_stack_t*)malloc(sizeof(wrap_stack_t));
+				_wrap_stack->prev = tailWrapStack;
+				_wrap_stack->fp = yyin;
+				_wrap_stack->filename = curFileName;
+				_wrap_stack->lineno = yylineno;
+				curFileName = $3.str;
+				yylineno = 1;
+				tailWrapStack = _wrap_stack;
+				includeDeep++;
+				dprintf("--------------------------\n");
+				dprintf("END INPUT: %s\n", $3.str);
+				dprintf("==========================\n");
+				yypush_buffer_state(yy_create_buffer(fp, 16384));
+			} else {
+				yyerror("File \"%s\" already included!\n", $3.str);
+				fclose(fp);
+				free($3.str);
+			}
+		} else {
+			yyerror("File \"%s\" not found!\n", $3.str);
+			free($3.str);
+		}
+	 zend_hash_clean(&frees);
+}
 ;
 
 /************************ 函数参数语法 ************************/

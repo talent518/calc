@@ -144,6 +144,7 @@ int yywrap() {
 		includeDeep--;
 		free(curFileName);
 
+		fclose(yyin);
 		curFileName = tailWrapStack->filename;
 		yylineno = tailWrapStack->lineno;
 
