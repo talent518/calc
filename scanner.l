@@ -139,6 +139,8 @@ int yywrap() {
 	dprintf("==========================\n");
 
 	if(includeDeep>0) {
+		zend_hash_del(&files, curFileName, strlen(curFileName));
+
 		includeDeep--;
 		free(curFileName);
 

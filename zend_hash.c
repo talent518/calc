@@ -76,12 +76,15 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 }
 
 
-#define UPDATE_DATA(ht, p, pData, nDataSize)											\
-	if (nDataSize <= sizeof(void*)) {													\
+#define UPDATE_DATA(ht, p, _pData, nDataSize)											\
+	if (nDataSize <= 0) {																\
+		(p)->pData = &(p)->pDataPtr;													\
+		(p)->pDataPtr=NULL;													\
+	} else if (nDataSize <= sizeof(void*)) {											\
 		if ((p)->pData != &(p)->pDataPtr) {												\
 			free((p)->pData);															\
 		}																				\
-		memcpy(&(p)->pDataPtr, pData, nDataSize);										\
+		memcpy(&(p)->pDataPtr, _pData, nDataSize);										\
 		(p)->pData = &(p)->pDataPtr;													\
 	} else {																			\
 		if ((p)->pData == &(p)->pDataPtr) {												\
@@ -91,11 +94,14 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 			(p)->pData = (void *) realloc((p)->pData, nDataSize);						\
 			/* (p)->pDataPtr is already NULL so no need to initialize it */				\
 		}																				\
-		memcpy((p)->pData, pData, nDataSize);											\
+		memcpy((p)->pData, _pData, nDataSize);											\
 	}
 
 #define INIT_DATA(ht, p, _pData, nDataSize);								\
-	if (nDataSize <= sizeof(void*)) {										\
+	if (nDataSize <= 0) {													\
+		(p)->pData = &(p)->pDataPtr;										\
+		(p)->pDataPtr=NULL;													\
+	} else if (nDataSize <= sizeof(void*)) {								\
 		memcpy(&(p)->pDataPtr, (_pData), nDataSize);						\
 		(p)->pData = &(p)->pDataPtr;										\
 	} else {																\

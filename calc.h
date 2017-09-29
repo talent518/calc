@@ -199,14 +199,22 @@ typedef struct _wrapStack {
 	struct _wrapStack *prev;
 } wrap_stack_t;
 
+extern HashTable files;
 extern wrap_stack_t *curWrapStack;
 extern wrap_stack_t *tailWrapStack;
 extern unsigned int includeDeep;
 extern char *curFileName;
 extern FILE *yyin, *yyout;
+
 void yyrestart(FILE*);
 int yylex (void);
 int yylex_destroy();
+void yypop_buffer_state(void);
+
+extern int exitCode;
+#define INTERRUPT(...) yyerror(__VA_ARGS__); \
+	if(yywrap()) { \
+		yypop_buffer_state(); \
+	}
 
 #include "parser.h"
-

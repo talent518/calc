@@ -2,6 +2,7 @@
 
 HashTable vars;
 HashTable funcs;
+HashTable files;
 
 typedef struct _linenostack {
 	unsigned int lineno;
@@ -1355,6 +1356,7 @@ void call_free_vars(exp_val_t *expr) {
 }
 
 int main(int argc, char **argv) {
+	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
@@ -1398,6 +1400,7 @@ int main(int argc, char **argv) {
 					dprintf("--------------------------\n");
 					curFileName = argv[i];
 					yylineno = 1;
+					zend_hash_add(&files, argv[i], strlen(argv[i]), NULL, 0, NULL);
 					yyrestart(fp);
 					yyparse();
 				} else {
@@ -1411,6 +1414,7 @@ int main(int argc, char **argv) {
 	
 	yylex_destroy();
 
+	zend_hash_destroy(&files);
 	zend_hash_destroy(&vars);
 	zend_hash_destroy(&funcs);
 

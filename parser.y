@@ -17,19 +17,23 @@ void* yy_create_buffer ( FILE *file, int size );
 #define INC_FILE(fn) do { \
 		FILE *fp = fopen(fn, "r"); \
 		if(fp) { \
-			wrap_stack_t *_wrap_stack = (wrap_stack_t*)malloc(sizeof(wrap_stack_t)); \
-			_wrap_stack->prev = tailWrapStack; \
-			_wrap_stack->fp = yyin; \
-			_wrap_stack->filename = curFileName; \
-			_wrap_stack->lineno = yylineno; \
-			curFileName = fn; \
-			yylineno = 1; \
-			tailWrapStack = _wrap_stack; \
-			includeDeep++; \
-			dprintf("--------------------------\n"); \
-			dprintf("END INPUT: %s\n", fn); \
-			dprintf("==========================\n"); \
-			yypush_buffer_state(yy_create_buffer(fp, 16384)); \
+			if (zend_hash_add(&files, fn, strlen(fn), NULL, 0, NULL) == SUCCESS) { \
+				wrap_stack_t *_wrap_stack = (wrap_stack_t*)malloc(sizeof(wrap_stack_t)); \
+				_wrap_stack->prev = tailWrapStack; \
+				_wrap_stack->fp = yyin; \
+				_wrap_stack->filename = curFileName; \
+				_wrap_stack->lineno = yylineno; \
+				curFileName = fn; \
+				yylineno = 1; \
+				tailWrapStack = _wrap_stack; \
+				includeDeep++; \
+				dprintf("--------------------------\n"); \
+				dprintf("END INPUT: %s\n", fn); \
+				dprintf("==========================\n"); \
+				yypush_buffer_state(yy_create_buffer(fp, 16384)); \
+			} else { \
+				yyerror("File \"%s\" already included!\n", fn); \
+			} \
 		} else { \
 			yyerror("File \"%s\" not found!\n"); \
 		} \
