@@ -77,11 +77,11 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 
 
 #define UPDATE_DATA(ht, p, pData, nDataSize)											\
-	if (nDataSize == sizeof(void*)) {													\
+	if (nDataSize <= sizeof(void*)) {													\
 		if ((p)->pData != &(p)->pDataPtr) {												\
 			free((p)->pData);															\
 		}																				\
-		memcpy(&(p)->pDataPtr, pData, sizeof(void *));									\
+		memcpy(&(p)->pDataPtr, pData, nDataSize);										\
 		(p)->pData = &(p)->pDataPtr;													\
 	} else {																			\
 		if ((p)->pData == &(p)->pDataPtr) {												\
@@ -95,20 +95,20 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 	}
 
 #define INIT_DATA(ht, p, _pData, nDataSize);								\
-	if (nDataSize == sizeof(void*)) {										\
-		memcpy(&(p)->pDataPtr, (_pData), sizeof(void *));					\
+	if (nDataSize <= sizeof(void*)) {										\
+		memcpy(&(p)->pDataPtr, (_pData), nDataSize);						\
 		(p)->pData = &(p)->pDataPtr;										\
 	} else {																\
-		(p)->pData = (void *) malloc(nDataSize);\
+		(p)->pData = (void *) malloc(nDataSize);							\
 		memcpy((p)->pData, (_pData), nDataSize);							\
 		(p)->pDataPtr=NULL;													\
 	}
 
-#define CHECK_INIT(ht) do {													\
-	if (UNEXPECTED((ht)->nTableMask == 0)) {								\
+#define CHECK_INIT(ht) do {															\
+	if (UNEXPECTED((ht)->nTableMask == 0)) {										\
 		(ht)->arBuckets = (Bucket **) calloc((ht)->nTableSize, sizeof(Bucket *));	\
-		(ht)->nTableMask = (ht)->nTableSize - 1;						\
-	}																	\
+		(ht)->nTableMask = (ht)->nTableSize - 1;									\
+	}																				\
 } while (0)
  
 static const Bucket *uninitialized_bucket = NULL;
