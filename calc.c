@@ -424,47 +424,6 @@ void calc_sprintf(char *buf, exp_val_t *src) {
 	}
 }
 
-void calc_print(char *p) {
-	for (; *p; p++) {
-		if (*p == '\\') {
-			p++;
-			switch (*p) {
-				case '\0':
-					return;
-				case '\\':
-					putchar(*p);
-					break;
-				case 'a':
-					putchar('\a');
-					break;
-				case 'b':
-					putchar('\b');
-					break;
-				case 'f':
-					putchar('\f');
-					break;
-				case 'n':
-					putchar('\n');
-					break;
-				case 'r':
-					putchar('\r');
-					break;
-				case 't':
-					putchar('\t');
-					break;
-				case 'v':
-					putchar('\v');
-					break;
-				default:
-					putchar(*p);
-					break;
-			}
-		} else {
-			putchar(*p);
-		}
-	}
-}
-
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
 	int result = va_arg(args, int);
 	char *key = strndup(hash_key->arKey, hash_key->nKeyLength);
@@ -873,7 +832,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				while (args) {
 					switch (args->val.type) {
 					case STR_T:
-						calc_print(args->val.str);
+						printf("%s", args->val.str);
 						break;
 					case NULL_T:
 						printf("null");
