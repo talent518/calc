@@ -22,7 +22,7 @@ calc: parser.o scanner.o zend_hash.o calc.o
 
 parser.c: ./tools/bin/bison
 	@echo parser.y
-	@./tools/bin/bison -v -d -o$@ parser.y
+	@./tools/bin/bison -v -d -Wnone -o$@ parser.y
 
 scanner.c: ./tools/bin/flex
 	@echo scanner.l

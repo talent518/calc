@@ -1,5 +1,5 @@
 func gvars(as,ar=23) {
-	global a1, a2, a3;
+	global a1, a2, a3, arr;
 	
 	a1 = 1;
 	a2 = 2;
@@ -9,7 +9,24 @@ func gvars(as,ar=23) {
 	list;
 }
 
+array arr[3];
+arr[0] = 1234;
+arr[1] = 5678;
+arr[2] = 9101;
+
 gvars(4);
+
+array arr2[2][2][2];
+arr2[0][0][0] = 1;
+arr2[0][0][1] = 2;
+arr2[0][1][0] = 3;
+arr2[0][1][1] = 4;
+arr2[1][0][0] = 5;
+arr2[1][0][1] = 6;
+arr2[1][1][0] = 7;
+arr2[1][1][1] = 8;
+
+echo "arr2 = ", arr2, endl;
 
 list;
 

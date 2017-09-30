@@ -15,8 +15,9 @@ typedef enum _type_enum_t {
 	LONG_T, // 长整型
 	FLOAT_T, // 浮点型
 	DOUBLE_T, // 双精度型
-	VAR_T, // 变量
 	STR_T, // 字符串
+	ARRAY_T, // 数组类型
+	VAR_T, // 变量
 	FUNC_T, // 函数
 	FUNC_CALL_T, // 函数调用参数
 	FUNC_DEF_T, // 函数定义信息
@@ -34,8 +35,7 @@ typedef enum _type_enum_t {
 	LOGIC_LE_T, // 小于等于 left <= right
 	LOGIC_EQ_T, // 等于 left == right
 	LOGIC_NE_T, // 不等于 left != right
-	IF_T, // 三目运算 (cond?left:right)
-	ARRAY_T // 数组类型
+	IF_T // 三目运算 (cond?left:right)
 } type_enum_t;
 
 typedef enum _call_enum_f {
@@ -61,6 +61,7 @@ typedef enum _symbol_enum_t {
 	DIVEQ_STMT_T, // var /= val
 	MODEQ_STMT_T, // var %= val
 	FUNC_STMT_T, // demo(); demo(1,2,3);
+	SRAND_STMT_T, // srand();
 	NULL_STMT_T
 } symbol_enum_t;
 
@@ -86,6 +87,7 @@ struct _func_def_f {
 	char *name;
 	unsigned argc;
 	unsigned minArgc;
+	char *names;
 	func_args_t *args;
 	func_symbol_t *syms;
 };
@@ -146,6 +148,7 @@ struct _func_symbol_t {
 	struct _func_symbol_t *tail;
 };
 
+extern func_symbol_t *topSyms;
 extern int yylineno;
 extern int yyleng;
 extern char *types[];
@@ -206,6 +209,7 @@ extern wrap_stack_t *tailWrapStack;
 extern unsigned int includeDeep;
 extern char *curFileName;
 extern FILE *yyin, *yyout;
+extern int isSyntaxData;
 
 int yywrap();
 void yyrestart(FILE*);
@@ -214,8 +218,9 @@ int yylex_destroy();
 void yypop_buffer_state(void);
 
 extern int exitCode;
-#define INTERRUPT(...) yyerror(__VA_ARGS__); \
-	if(yywrap()) { \
+#define INTERRUPT(code, ...) exitCode = code; \
+	yyerror(__VA_ARGS__); \
+	if(!yywrap()) { \
 		yypop_buffer_state(); \
 	}
 

@@ -80,13 +80,13 @@ inline void setval(exp_val_t *val) {
 "?" |
 ":" |
 ","                                            { return yytext[0]; }
-">"                                            { yylval.type=LOGIC_GT_T;return LOGIC; }
-"<"                                            { yylval.type=LOGIC_LT_T;return LOGIC; }
-">="                                           { yylval.type=LOGIC_GE_T;return LOGIC; }
-"<="                                           { yylval.type=LOGIC_LE_T;return LOGIC; }
-"=="                                           { yylval.type=LOGIC_EQ_T;return LOGIC; }
-"!="                                           { yylval.type=LOGIC_NE_T;return LOGIC; }
-"<>"                                           { yylval.type=LOGIC_NE_T;return LOGIC; }
+">"                                            { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_GT_T;} return LOGIC; }
+"<"                                            { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_LT_T;} return LOGIC; }
+">="                                           { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_GE_T;} return LOGIC; }
+"<="                                           { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_LE_T;} return LOGIC; }
+"=="                                           { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_EQ_T;} return LOGIC; }
+"!="                                           { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_NE_T;} return LOGIC; }
+"<>"                                           { if(EXPECTED(isSyntaxData)) {yylval.type=LOGIC_NE_T;} return LOGIC; }
 "++"                                           { return INC; }
 "--"                                           { return DEC; }
 "+="                                           { return ADDEQ; }
@@ -96,26 +96,26 @@ inline void setval(exp_val_t *val) {
 "%="                                           { return MODEQ; }
 "array"                                        { return ARRAY; }
 "global"                                       { return GLOBAL_T; }
-"cos"                                          { yylval.type=FUNC_T;yylval.call.type=COS_F;yylval.call.argc=1;yylval.call.name="cos(double radian)";return CALL; }
-"pow"                                          { yylval.type=FUNC_T;yylval.call.type=POW_F;yylval.call.argc=2;yylval.call.name="pow(double base, double exp)";return CALL; }
-"rad"                                          { yylval.type=FUNC_T;yylval.call.type=RAD_F;yylval.call.argc=1;yylval.call.name="rad(double angle)";return CALL; }
-"rand"                                         { yylval.type=FUNC_T;yylval.call.type=RAND_F;yylval.call.argc=0;yylval.call.name="rand()";return CALL; }
-"randf"                                        { yylval.type=FUNC_T;yylval.call.type=RANDF_F;yylval.call.argc=0;yylval.call.name="randf()";return CALL; }
-"RAND_MAX"                                     { yylval.type=LONG_T;yylval.lval=RAND_MAX; return CONST_RAND_MAX; }
+"cos"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=COS_F;yylval.call.argc=1;yylval.call.name="cos(double radian)";} return CALL; }
+"pow"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=POW_F;yylval.call.argc=2;yylval.call.name="pow(double base, double exp)";} return CALL; }
+"rad"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=RAD_F;yylval.call.argc=1;yylval.call.name="rad(double angle)";} return CALL; }
+"rand"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=RAND_F;yylval.call.argc=0;yylval.call.name="rand()";} return CALL; }
+"randf"                                        { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=RANDF_F;yylval.call.argc=0;yylval.call.name="randf()";} return CALL; }
+"RAND_MAX"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=LONG_T;yylval.lval=RAND_MAX;}  return CONST_RAND_MAX; }
 "ret"                                          { return RET; }
 "return"                                       { return RET; }
-"sin"                                          { yylval.type=FUNC_T;yylval.call.type=SIN_F;yylval.call.argc=1;yylval.call.name="sin(double radian)";return CALL; }
+"sin"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=SIN_F;yylval.call.argc=1;yylval.call.name="sin(double radian)";} return CALL; }
 "srand"                                        { return SRAND; }
-"tan"                                          { yylval.type=FUNC_T;yylval.call.type=TAN_F;yylval.call.argc=1;yylval.call.name="tan(double radian)";return CALL; }
-"acos"                                         { yylval.type=FUNC_T;yylval.call.type=ACOS_F;yylval.call.argc=1;yylval.call.name="acos(double arg)";return CALL; }
-"asin"                                         { yylval.type=FUNC_T;yylval.call.type=ASIN_F;yylval.call.argc=1;yylval.call.name="asin(double arg)";return CALL; }
-"atan"                                         { yylval.type=FUNC_T;yylval.call.type=ATAN_F;yylval.call.argc=1;yylval.call.name="atan(double arg)";return CALL; }
-"ctan"                                         { yylval.type=FUNC_T;yylval.call.type=CTAN_F;yylval.call.argc=1;yylval.call.name="ctan(double arg)";return CALL; }
-"sqrt"                                         { yylval.type=FUNC_T;yylval.call.type=SQRT_F;yylval.call.argc=1;yylval.call.name="sqrt(double num)";return CALL; }
+"tan"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=TAN_F;yylval.call.argc=1;yylval.call.name="tan(double radian)";} return CALL; }
+"acos"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=ACOS_F;yylval.call.argc=1;yylval.call.name="acos(double arg)";} return CALL; }
+"asin"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=ASIN_F;yylval.call.argc=1;yylval.call.name="asin(double arg)";} return CALL; }
+"atan"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=ATAN_F;yylval.call.argc=1;yylval.call.name="atan(double arg)";} return CALL; }
+"ctan"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=CTAN_F;yylval.call.argc=1;yylval.call.name="ctan(double arg)";} return CALL; }
+"sqrt"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=SQRT_F;yylval.call.argc=1;yylval.call.name="sqrt(double num)";} return CALL; }
 "echo"                                         { return ECHO_T; }
 "list"                                         { return LIST; }
 "clear"                                        { return CLEAR; }
-"endl"                                         { yylval.type=STR_T;yylval.str=strdup("\n");zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return STR; }
+"endl"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;yylval.str=strdup("\n");zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return STR; }
 "func"                                         { return FUNC; }
 "function"                                     { return FUNC; }
 "PI"                                           { return CONST_PI; }
@@ -125,9 +125,9 @@ inline void setval(exp_val_t *val) {
 "do"                                           { return DO; }
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
-([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { setval(&yylval);return NUMBER; }
-[a-zA-Z][a-zA-Z0-9_]*                          { yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return VARIABLE; }
-\"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);return STR; }
+([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {setval(&yylval);} return NUMBER; }
+[a-zA-Z][a-zA-Z0-9_]*                          { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return VARIABLE; }
+\"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL); return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 
@@ -142,7 +142,10 @@ int yywrap() {
 		zend_hash_del(&files, curFileName, strlen(curFileName));
 
 		includeDeep--;
-		free(curFileName);
+
+		if(EXPECTED(isSyntaxData)) {
+			free(curFileName);
+		}
 
 		fclose(yyin);
 		curFileName = tailWrapStack->filename;

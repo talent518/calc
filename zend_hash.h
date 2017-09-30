@@ -147,6 +147,7 @@ struct _hashtable;
 typedef struct bucket {
 	ulong h;						/* Used for numeric indexing */
 	uint nKeyLength;
+	uint nDataSize;
 	void *pData;
 	void *pDataPtr;
 	struct bucket *pListNext;

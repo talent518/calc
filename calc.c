@@ -4,6 +4,9 @@ HashTable vars;
 HashTable funcs;
 HashTable files;
 HashTable frees;
+func_symbol_t *topSyms = NULL;
+int isSyntaxData = 1;
+int exitCode = 0;
 
 typedef struct _linenostack {
 	unsigned int lineno;
@@ -13,7 +16,7 @@ typedef struct _linenostack {
 static linenostack_t linenostack[1024]={0};
 static int linenostacktop = -1;
 
-char *types[] = { "int", "long", "float", "double" };
+char *types[] = { "int", "long", "float", "double", "str", "array" };
 
 // dst = (double)(src)
 #define CALC_CONV(dst,src,val) \
@@ -364,13 +367,49 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 #else
 #define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
 #endif
-// printf(src)
+
+void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
+	register int i;
+	for(i = 0; i<deep; i++) {
+		printf(" ");
+	}
+	printf("[");
+	if(args->next) {
+		printf("\n");
+	}
+	for (i = 0; i < args->val.ival; i++) {
+		if(args->next) {
+			calc_array_echo(&ptr->array[i], args->next, deep+4);
+			if(i+1 == args->val.ival) {
+				printf("\n");
+			} else {
+				printf(",\n");
+			}
+		} else {
+			if(i) {
+				printf(", ");
+			}
+			calc_echo(&ptr->array[i]);
+		}
+	}
+	if(args->next) {
+		for(i = 0; i<deep; i++) {
+			printf(" ");
+		}
+	}
+	printf("]");
+}
+
 void calc_echo(exp_val_t *src) {
 	switch (src->type) {
 		CALC_ECHO_DEF(src, INT_T, ival, "%d");
-		CALC_ECHO_DEF(src,LONG_T,lval,"%ld");
-		CALC_ECHO_DEF(src,FLOAT_T,fval,"%.16f");
-		CALC_ECHO_DEF(src,DOUBLE_T,dval,"%.19lf");
+		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
+		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
+		CALC_ECHO_DEF(src, DOUBLE_T, dval, "%.19lf");
+		CALC_ECHO_DEF(src, STR_T, str, "%s");
+		case ARRAY_T:
+			calc_array_echo(src, src->arrayArgs, 0);
+			break;
 	}
 }
 
@@ -482,10 +521,15 @@ void calc_func_print(func_def_f *def) {
 	strcat(names, ")");
 	dprintf("%s", names);
 	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
+	
 	if (errArgc) {
-		yyerror("The user function %s the first %d argument not default value", names, errArgc + 1);
-		exit(0);
+		INTERRUPT(__LINE__, "The user function %s the first %d argument not default value", names, errArgc + 1);
+
+		def->names = NULL;
+		return;
 	}
+	
+	def->names = strdup(names);
 }
 
 void calc_func_def(func_def_f *def) {
@@ -493,7 +537,9 @@ void calc_func_def(func_def_f *def) {
 	calc_func_print(def);
 	dprintf("\n");
 
-	zend_hash_update(&funcs, def->name, strlen(def->name), def, sizeof(func_def_f), NULL);
+	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, sizeof(func_def_f), NULL) == FAILURE) {
+		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
+	}
 }
 
 void calc_free_args(call_args_t *args) {
@@ -511,7 +557,6 @@ void calc_free_syms(func_symbol_t *syms) {
 	func_symbol_t *tmpSyms;
 
 	while (syms) {
-		linenostack[linenostacktop].lineno = syms->lineno;
 		switch (syms->type) {
 			case ECHO_STMT_T: {
 				calc_free_args(syms->args);
@@ -604,6 +649,7 @@ nextStmt:
 
 void calc_free_func(func_def_f *def) {
 	free(def->name);
+	free(def->names);
 
 	func_args_t *args = def->args, *tmpArgs;
 
@@ -1092,6 +1138,10 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				calc_run_expr(&val, syms->expr);
 				break;
 			}
+			case SRAND_STMT_T: {
+				seed_rand();
+				break;
+			}
 		}
 
 		nextStmt: syms = syms->next;
@@ -1102,12 +1152,14 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 
 void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 	HashTable tmpVars = vars;
+	call_args_t *tmpArgs = args;
+	func_args_t *funcArgs = def->args;
+	func_symbol_t *syms;
+	call_args_t *_args;
+	exp_val_t val;
 	
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 
-	call_args_t *tmpArgs = args;
-	func_args_t *funcArgs = def->args;
-	exp_val_t val;
 	while (funcArgs) {
 		if(tmpArgs) {
 			calc_run_expr(&val, &tmpArgs->val);
@@ -1119,25 +1171,47 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 		funcArgs = funcArgs->next;
 	}
 
-	calc_run_syms(ret, def->syms);
-	
-	vars.pDestructor = NULL;
-	
-	func_symbol_t *syms = def->syms;
-	
+	syms = def->syms;
 	while(syms) {
 		if(syms->type != GLOBAL_T) {
 			syms = syms->next;
 			continue;
 		}
 		
-		call_args_t *_args = syms->args;
+		_args = syms->args;
+		while(_args) {
+			exp_val_t *ptr = NULL;
+			
+			zend_hash_find(&tmpVars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
+			if(ptr) {
+				zend_hash_add(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+			}
+			_args = _args->next;
+		}
+		
+		syms = syms->next;
+	}
+
+	calc_run_syms(ret, def->syms);
+	
+	vars.pDestructor = NULL;
+	
+	syms = def->syms;
+	while(syms) {
+		if(syms->type != GLOBAL_T) {
+			syms = syms->next;
+			continue;
+		}
+		
+		_args = syms->args;
 		while(_args) {
 			exp_val_t *ptr = NULL;
 			
 			zend_hash_find(&vars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
 			if(ptr) {
-				zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+				if(_args->val.type != ARRAY_T) {
+					zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+				}
 				zend_hash_del(&vars, _args->val.str, strlen(_args->val.str));
 			}
 			_args = _args->next;
@@ -1226,9 +1300,7 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 				yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d. %s", name, def->argc, def->minArgc, _argc);
 			}
 
-			dprintf("call user function for ");
-			calc_func_print(def);
-			dprintf("\n");
+			dprintf("call user function for %s\n", def->names);
 
 			linenostack[++linenostacktop].funcname = name;
 			call_func_run(ret, def, args);
@@ -1349,11 +1421,15 @@ void call_free_vars(exp_val_t *expr) {
 			calc_free_args(expr->arrayArgs);
 			break;
 		}
+		case STR_T: {
+			dprintf("--- FreeVars: STR_T ---\n");
+			free(expr->str);
+			break;
+		}
 		default: {
 			dprintf("--- FreeVars: %s ---\n", types[expr->type - INT_T]);
 		}
 	}
-	//free(expr);
 }
 
 #ifdef DEBUG
@@ -1365,7 +1441,7 @@ static void free_frees(char *s) {
 	#define free_frees free
 #endif
 
-#define YYPARSE() while(yyparse()) { \
+#define YYPARSE() while(yyparse() && isSyntaxData) { \
 		frees.pDestructor = (dtor_func_t)free_frees; \
 		if(yywrap()) { \
 			break; \
@@ -1373,7 +1449,24 @@ static void free_frees(char *s) {
 			zend_hash_clean(&frees); \
 			frees.pDestructor = NULL; \
 		} \
-	}
+	} \
+	if(isSyntaxData) { \
+		memset(&expr, 0, sizeof(exp_val_t)); \
+		calc_run_syms(&expr, topSyms); \
+		calc_free_expr(&expr); \
+		calc_free_syms(topSyms); \
+		topSyms = NULL; \
+		if(isolate) { \
+			zend_hash_clean(&vars); \
+			zend_hash_clean(&funcs); \
+		} \
+	} else { \
+		frees.pDestructor = (dtor_func_t)free_frees; \
+	} \
+	while(!yywrap()) {} \
+	zend_hash_clean(&files); \
+	zend_hash_clean(&frees); \
+	frees.pDestructor = NULL
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
@@ -1391,19 +1484,35 @@ int main(int argc, char **argv) {
 		"    -              from stdin input source code.\n" \
 		"    -v             Version number.\n" \
 		"    -h             This help.\n" \
+		"    -i             Isolate run.\n" \
+		"    -I             Not isolate run.\n" \
 		"    files...       from file input source code for multiple.\n" \
 		, argv[0])
 	if(argc > 1) {
 		int i;
+		int isolate = 1;
+		exp_val_t expr;
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
-				if(argv[i][1]) {
+				if(argv[i][1] && !argv[i][2]) {
 					switch(argv[i][1]) {
 						case 'v':
 							printf("v1.1\n");
 							break;
 						case 'h':
 							USAGE();
+							break;
+						case 'i':
+							isolate = 1;
+							break;
+						case 'I':
+							isolate = 0;
+							break;
+						case 's':
+							isSyntaxData = 1;
+							break;
+						case 'S':
+							isSyntaxData = 0;
 							break;
 						default:
 							break;
@@ -1441,7 +1550,7 @@ int main(int argc, char **argv) {
 	zend_hash_destroy(&vars);
 	zend_hash_destroy(&funcs);
 
-	return 0;
+	return exitCode;
 }
 
 void yyerror(const char *s, ...) {
