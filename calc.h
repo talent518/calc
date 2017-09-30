@@ -182,15 +182,17 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 void call_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
 
-#define LIST_STMT(info, t) printf(info);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
+#define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 void seed_rand();
 void yyerror(const char *s, ...);
+void red_stderr_printf(const char *s, ...);
+void red_stderr_vprintf(const char *s, va_list ap);
 
 #define YYSTYPE exp_val_t
 
 #ifdef DEBUG
-#define dprintf(...) printf(__VA_ARGS__)
+#define dprintf(...) red_stderr_printf(__VA_ARGS__)
 #else
 #define dprintf(...)
 #endif

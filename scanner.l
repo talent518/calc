@@ -125,8 +125,9 @@ inline void setval(exp_val_t *val) {
 "do"                                           { return DO; }
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
+"TOP"                                          { /* 忽略TOP关键字 */ }
 ([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {setval(&yylval);} return NUMBER; }
-[a-zA-Z][a-zA-Z0-9_]*                          { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return VARIABLE; }
+[a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return VARIABLE; }
 \"([^"\\]|\\['"?\\abfnrtv])*\"                 { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL); return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }

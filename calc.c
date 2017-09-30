@@ -13,7 +13,7 @@ typedef struct _linenostack {
 	char *funcname;
 } linenostack_t;
 
-static linenostack_t linenostack[1024]={0};
+static linenostack_t linenostack[1024]={{0,"TOP"}};
 static int linenostacktop = -1;
 
 char *types[] = { "int", "long", "float", "double", "str", "array" };
@@ -468,7 +468,8 @@ void calc_print(char *p) {
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
 	int result = va_arg(args, int);
 	char *key = strndup(hash_key->arKey, hash_key->nKeyLength);
-	
+
+	printf("\x1b[34m");
 	if (result == ZEND_HASH_APPLY_KEEP) {
 		printf("    (%6s) %s = ", types[val->type - INT_T], key);
 	} else {
@@ -477,6 +478,7 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 	free(key);
 	calc_echo(val);
 	printf("\n");
+	printf("\x1b[0m");
 	return result;
 }
 
@@ -942,11 +944,11 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				return BREAK_STATUS;
 			}
 			case LIST_STMT_T: {
-				LIST_STMT("--- list in func ---\n", ZEND_HASH_APPLY_KEEP);
+				LIST_STMT("\x1b[34m--- list in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_KEEP);
 				break;
 			}
 			case CLEAR_STMT_T: {
-				LIST_STMT("--- clear in func ---\n", ZEND_HASH_APPLY_REMOVE);
+				LIST_STMT("\x1b[34m--- clear in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_REMOVE);
 				break;
 			}
 			case ARRAY_STMT_T: {
@@ -1554,20 +1556,34 @@ int main(int argc, char **argv) {
 }
 
 void yyerror(const char *s, ...) {
-	fprintf(stderr, "===================================\n");
-	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
+	red_stderr_printf("===================================\n");
+	red_stderr_printf("Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
 	int i;
 	for(i=0; i<=linenostacktop; i++) {
-		fprintf(stderr, "Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
+		red_stderr_printf("Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
 	}
-	fprintf(stderr, "-----------------------------------\n");
+	red_stderr_printf("-----------------------------------\n");
 
 	va_list ap;
 
 	va_start(ap, s);
-	vfprintf(stderr, s, ap);
+	red_stderr_vprintf(s, ap);
 	va_end(ap);
 	
-	fprintf(stderr, "===================================\n");
+	red_stderr_printf("===================================\n");
+}
+
+void red_stderr_printf(const char *s, ...) {
+	va_list ap;
+
+	va_start(ap, s);
+	red_stderr_vprintf(s, ap);
+	va_end(ap);
+}
+
+void red_stderr_vprintf(const char *s, va_list ap) {
+	fprintf(stderr, "\x1b[31m");
+	vfprintf(stderr, s, ap);
+	fprintf(stderr, "\x1b[0m");
 }
