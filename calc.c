@@ -1436,7 +1436,7 @@ void call_free_vars(exp_val_t *expr) {
 
 #ifdef DEBUG
 static void free_frees(char *s) {
-	printf("FREES: %s\n", s);
+	dprintf("FREES: %s\n", s);
 	free(s);
 }
 #else
@@ -1556,34 +1556,23 @@ int main(int argc, char **argv) {
 }
 
 void yyerror(const char *s, ...) {
-	red_stderr_printf("===================================\n");
-	red_stderr_printf("Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
+	fprintf(stderr, "\x1b[31m");
+	fprintf(stderr, "===================================\n");
+	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
 	int i;
 	for(i=0; i<=linenostacktop; i++) {
-		red_stderr_printf("Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
+		fprintf(stderr, "Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
 	}
-	red_stderr_printf("-----------------------------------\n");
+	fprintf(stderr, "-----------------------------------\n");
 
 	va_list ap;
 
 	va_start(ap, s);
-	red_stderr_vprintf(s, ap);
+	vfprintf(stderr, s, ap);
 	va_end(ap);
 	
-	red_stderr_printf("===================================\n");
-}
-
-void red_stderr_printf(const char *s, ...) {
-	va_list ap;
-
-	va_start(ap, s);
-	red_stderr_vprintf(s, ap);
-	va_end(ap);
-}
-
-void red_stderr_vprintf(const char *s, va_list ap) {
-	fprintf(stderr, "\x1b[31m");
-	vfprintf(stderr, s, ap);
+	fprintf(stderr, "===================================\n");
 	fprintf(stderr, "\x1b[0m");
 }
+

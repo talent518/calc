@@ -192,7 +192,7 @@ void red_stderr_vprintf(const char *s, va_list ap);
 #define YYSTYPE exp_val_t
 
 #ifdef DEBUG
-#define dprintf(...) red_stderr_printf(__VA_ARGS__)
+#define dprintf(...) fprintf(stderr, "\x1b[33m");fprintf(stderr, __VA_ARGS__);fprintf(stderr, "\x1b[0m")
 #else
 #define dprintf(...)
 #endif
