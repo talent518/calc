@@ -6,11 +6,15 @@
 #include <sys/time.h>
 #include <math.h>
 #include <complex.h>
+#include <float.h>
+#include <limits.h>
 
 #include "zend_hash.h"
 
+#define max(a, b) ((a)>(b) ? (a) : (b))
+
 typedef enum _type_enum_t {
-	NULL_T, // 空
+	NULL_T=0, // 空
 	INT_T, // 整型
 	LONG_T, // 长整型
 	FLOAT_T, // 浮点型
@@ -99,7 +103,10 @@ struct _exp_val_t {
 		long int lval;
 		float fval;
 		double dval;
-		char *str;
+		struct {
+			char *str;
+			unsigned int strlen;
+		};
 		func_call_f call;
 		func_def_f def;
 		struct {
@@ -181,6 +188,8 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 
 void call_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
+
+void str2val(exp_val_t *val, char *str);
 
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 

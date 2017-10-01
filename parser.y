@@ -91,6 +91,7 @@ funcArgList:  funcArg
  | funcArgList ',' funcArg { if(EXPECTED(isSyntaxData)) { APPEND($$.def.args,$3.def.args); } }
 ;
 funcArg: VARIABLE '=' number { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;FUNC_ARGS($$.def.args,$3);$$.def.args->name = $1.str; } }
+ | VARIABLE '=' STR { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;FUNC_ARGS($$.def.args,$3);$$.def.args->name = $1.str; } }
  | VARIABLE { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;$1.type=NULL_T;FUNC_ARGS($$.def.args,$1);$$.def.args->name = $1.str; } }
 ;
 /************************ 函数语句语法 ************************/
@@ -154,6 +155,7 @@ echoArg: stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($
 ;
 stmtExpr: VARIABLE
  | number
+ | STR
  | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { $$.type=MINUS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL; } }
  | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=ADD_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
  | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=SUB_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }

@@ -4,60 +4,6 @@
 %{
 
 #include "calc.h"
-#include <float.h>
-#include <limits.h>
-
-inline void setval(exp_val_t *val) {
-	int n=strlen(yytext);
-	switch(yytext[n-1]) {
-		case 'I':
-		case 'i':
-			val->type=INT_T;
-			val->ival = atol(yytext);
-			break;
-		case 'L':
-		case 'l':
-			val->type=LONG_T;
-			val->lval = atol(yytext);
-			break;
-		case 'F':
-		case 'f':
-			val->type=FLOAT_T;
-			val->fval = atof(yytext);
-			break;
-		case 'D':
-		case 'd':
-			val->type=DOUBLE_T;
-			val->dval = atof(yytext);
-			break;
-		case 'R':
-		case 'r':
-			val->type=DOUBLE_T;
-			val->dval = atof(yytext) * M_PI / 180.0;
-			break;
-		default:
-			if(strchr(yytext,'.')) {
-				double d = atof(yytext);
-				if(FLT_MIN <= d && d <= FLT_MAX) {
-					val->type = FLOAT_T;
-					val->fval = d;
-				} else {
-					val->type = DOUBLE_T;
-					val->dval = d;
-				}
-			} else {
-				long int i = atoi(yytext);
-				if(INT_MIN <= i && i <= INT_MAX) {
-					val->type = INT_T;
-					val->ival = i;
-				} else {
-					val->type = LONG_T;
-					val->lval = i;
-				}
-			}
-			break;
-	}
-}
 
 inline void unescape(char *p) {
 	char *q = p;
@@ -226,9 +172,9 @@ inline void unescape(char *p) {
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
 "TOP"                                          { /* 忽略TOP关键字 */ }
-([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {setval(&yylval);} return NUMBER; }
+([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {str2val(&yylval, yytext);} return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return VARIABLE; }
-\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL); return STR; }
+\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str);yylval.strlen=strlen(yylval.str);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL); return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 

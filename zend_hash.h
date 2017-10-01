@@ -81,7 +81,9 @@ typedef unsigned short zend_ushort;
 #endif
 
 #define SIZEOF_LONG 4
+#ifndef LONG_MAX
 #define LONG_MAX 2147483648
+#endif
 
 #if SIZEOF_LONG == 4
 #define MAX_LENGTH_OF_LONG 11

@@ -14,294 +14,290 @@ typedef struct _linenostack {
 } linenostack_t;
 
 static linenostack_t linenostack[1024]={{0,"TOP"}};
-static int linenostacktop = -1;
+static int linenostacktop = 0;
 
-char *types[] = { "int", "long", "float", "double", "str", "array" };
+char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
-// dst = (double)(src)
 #define CALC_CONV(dst,src,val) \
-	switch(src->type) { \
-		case INT_T: dst->val=src->ival;break; \
-		case LONG_T: dst->val=src->lval;break; \
-		case FLOAT_T: dst->val=src->fval;break; \
-		case DOUBLE_T: dst->val=src->dval;break; \
+	switch((src)->type) { \
+		case INT_T: CALC_CONV_ival2##val(dst, src);break; \
+		case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
+		case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
+		case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
+		case STR_T: { \
+			char *__p = (src)->str; \
+			type_enum_t __type = (dst)->type; \
+			CALC_CONV_str2##val(dst, src); \
+			if((dst) != (src) && __type == STR_T) { \
+				free(__p); \
+			} \
+			break; \
+		} \
+		default: \
+			if((dst) != (src)) { \
+				if((dst)->type == STR_T) { \
+					free((dst)->str); \
+				} \
+				if((dst)->type != NULL_T) { \
+					memset((dst), 0, sizeof(exp_val_t)); \
+				} \
+			} \
 	}
+
+#define CALC_CONV_ival2ival(dst, src) (dst)->ival = (int)(src)->ival;(dst)->type = INT_T
+#define CALC_CONV_ival2lval(dst, src) (dst)->lval = (long int)(src)->ival;(dst)->type = LONG_T
+#define CALC_CONV_ival2fval(dst, src) (dst)->fval = (float)(src)->ival;(dst)->type = FLOAT_T
+#define CALC_CONV_ival2dval(dst, src) (dst)->dval = (double)(src)->ival;(dst)->type = DOUBLE_T
+#define CALC_CONV_ival2str(dst, src) (dst)->str = (char*)malloc(12);memset((dst)->str, 0, 12);\
+	(dst)->strlen = snprintf((dst)->str, 11, "%d", (src)->ival);(dst)->type = STR_T
+
+#define CALC_CONV_lval2ival(dst, src) (dst)->ival = (int)(src)->lval;(dst)->type = INT_T
+#define CALC_CONV_lval2lval(dst, src) (dst)->lval = (long int)(src)->lval;(dst)->type = LONG_T
+#define CALC_CONV_lval2fval(dst, src) (dst)->fval = (float)(src)->lval;(dst)->type = FLOAT_T
+#define CALC_CONV_lval2dval(dst, src) (dst)->dval = (double)(src)->lval;(dst)->type = DOUBLE_T
+#define CALC_CONV_lval2str(dst, src) (dst)->str = (char*)malloc(22);memset((dst)->str, 0, 22);\
+	(dst)->strlen = snprintf((dst)->str, 21, "%ld", (src)->lval);(dst)->type = STR_T
+
+#define CALC_CONV_fval2ival(dst, src) (dst)->ival = (int)(src)->fval;(dst)->type = INT_T
+#define CALC_CONV_fval2lval(dst, src) (dst)->lval = (long int)(src)->fval;(dst)->type = LONG_T
+#define CALC_CONV_fval2fval(dst, src) (dst)->fval = (float)(src)->fval;(dst)->type = FLOAT_T
+#define CALC_CONV_fval2dval(dst, src) (dst)->dval = (double)(src)->fval;(dst)->type = DOUBLE_T
+#define CALC_CONV_fval2str(dst, src) (dst)->str = (char*)malloc(23);memset((dst)->str, 0, 23);\
+	(dst)->strlen = snprintf((dst)->str, 22, "%f", (src)->fval);(dst)->type = STR_T
+
+#define CALC_CONV_dval2ival(dst, src) (dst)->ival = (int)(src)->dval;(dst)->type = INT_T
+#define CALC_CONV_dval2lval(dst, src) (dst)->lval = (long int)(src)->dval;(dst)->type = LONG_T
+#define CALC_CONV_dval2fval(dst, src) (dst)->fval = (float)(src)->dval;(dst)->type = FLOAT_T
+#define CALC_CONV_dval2dval(dst, src) (dst)->dval = (double)(src)->dval;(dst)->type = DOUBLE_T
+#define CALC_CONV_dval2str(dst, src) (dst)->str = (char*)malloc(33);memset((dst)->str, 0, 33);\
+	(dst)->strlen = snprintf((dst)->str, 32, "%lf", (src)->dval);(dst)->type = STR_T
+
+#define CALC_CONV_str2ival(dst, src) (dst)->ival = 0;sscanf(__p, "%d", &(dst)->ival);(dst)->type = INT_T
+#define CALC_CONV_str2lval(dst, src) (dst)->lval = 0;sscanf(__p, "%ld", &(dst)->lval);(dst)->type = LONG_T
+#define CALC_CONV_str2fval(dst, src) (dst)->fval = 0.0;sscanf(__p, "%f", &(dst)->fval);(dst)->type = FLOAT_T
+#define CALC_CONV_str2dval(dst, src) (dst)->dval = 0.0;sscanf(__p, "%lf", &(dst)->dval);(dst)->type = DOUBLE_T
+#define CALC_CONV_str2str(dst, src) if((dst) != (src)) { \
+		(dst)->str = strndup((src)->str, (src)->strlen); \
+		(dst)->strlen = (src)->strlen; \
+		(dst)->type = STR_T; \
+	}
+
+#define CALC_CONV_op_INIT() exp_val_t val1 = {NULL_T}, val2 = {NULL_T}
+#define CALC_CONV_op(op1, op2, t, val) \
+	if(op1->type !=t) { \
+		CALC_CONV(&val1, op1, val); \
+		op1 = &val1; \
+	} \
+	if(op2->type != t) { \
+		CALC_CONV(&val2, op2, val); \
+		op2 = &val2; \
+	}
+
+void str2val(exp_val_t *val, char *str) {
+	int n=strlen(str);
+	switch(str[n-1]) {
+		case 'I':
+		case 'i':
+			val->type=INT_T;
+			val->ival = atol(str);
+			break;
+		case 'L':
+		case 'l':
+			val->type=LONG_T;
+			val->lval = atol(str);
+			break;
+		case 'F':
+		case 'f':
+			val->type=FLOAT_T;
+			val->fval = atof(str);
+			break;
+		case 'D':
+		case 'd':
+			val->type=DOUBLE_T;
+			val->dval = atof(str);
+			break;
+		case 'R':
+		case 'r':
+			val->type=DOUBLE_T;
+			val->dval = atof(str) * M_PI / 180.0;
+			break;
+		default:
+			if(strchr(str,'.')) {
+				double d = atof(str);
+				if(FLT_MIN <= d && d <= FLT_MAX) {
+					val->type = FLOAT_T;
+					val->fval = d;
+				} else {
+					val->type = DOUBLE_T;
+					val->dval = d;
+				}
+			} else {
+				long int i = atoi(str);
+				if(INT_MIN <= i && i <= INT_MAX) {
+					val->type = INT_T;
+					val->ival = i;
+				} else {
+					val->type = LONG_T;
+					val->lval = i;
+				}
+			}
+			break;
+	}
+}
 
 // dst = op1 + op2
 void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	switch (op1->type) {
-		case INT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = INT_T;
-					dst->lval = op1->ival + op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->ival + op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = FLOAT_T;
-					dst->fval = op1->ival + op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->ival + op2->dval;
-					break;
+	CALC_CONV_op_INIT();
+	
+	switch (max(op1->type, op2->type)) {
+		case INT_T: {
+			CALC_CONV_op(op1, op2, INT_T, ival);
+			dst->ival = op1->ival + op2->ival;
+			dst->type = INT_T;
+			break;
+		}
+		case LONG_T: {
+			CALC_CONV_op(op1, op2, LONG_T, lval);
+			dst->lval = op1->lval + op2->lval;
+			dst->type = LONG_T;
+			break;
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(op1, op2, FLOAT_T, fval);
+			dst->fval = op1->fval + op2->fval;
+			dst->type = FLOAT_T;
+			break;
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
+			dst->dval = op1->dval + op2->dval;
+			dst->type = DOUBLE_T;
+			break;
+		}
+		case STR_T: {
+			CALC_CONV_op(op1, op2, STR_T, str);
+			dst->type = STR_T;
+			dst->strlen = op1->strlen + op2->strlen;
+			dst->str = (char*) malloc(dst->strlen+1);
+			memcpy(dst->str, op1->str, op1->strlen);
+			memcpy(dst->str+op1->strlen, op2->str, op2->strlen);
+			*(dst->str + dst->strlen) = '\0';
+			if(val1.type == STR_T) {
+				free(val1.str);
+			}
+			if(val2.type == STR_T) {
+				free(val2.str);
 			}
 			break;
-		case LONG_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval + op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval + op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->lval + op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->lval + op2->dval;
-					break;
-			}
-			break;
-		case FLOAT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = FLOAT_T;
-					dst->dval = op1->fval + op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->fval = op1->fval + op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = FLOAT_T;
-					dst->dval = op1->fval + op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->fval + op2->dval;
-					break;
-			}
-			break;
-		case DOUBLE_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval + op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval + op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval + op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval + op2->dval;
-					break;
-			}
-			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
 // dst = op1 - op2
 void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	switch (op1->type) {
-		case INT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = INT_T;
-					dst->ival = op1->ival - op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->ival - op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = FLOAT_T;
-					dst->dval = op1->ival - op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->ival - op2->dval;
-					break;
-			}
+	CALC_CONV_op_INIT();
+	
+	if(op1->type == STR_T) {
+		exp_val_t val1 = {INT_T, 0};
+		str2val(&val1, op1->str);
+		op1 = &val1;
+	}
+	if(op2->type == STR_T) {
+		exp_val_t val2 = {INT_T, 0};
+		str2val(&val2, op2->str);
+		op2 = &val2;
+	}
+	switch (max(op1->type, op2->type)) {
+		case INT_T: {
+			CALC_CONV_op(op1, op2, INT_T, ival);
+			dst->ival = op1->ival - op2->ival;
+			dst->type = INT_T;
 			break;
-		case LONG_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval - op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval - op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->lval - op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->lval - op2->dval;
-					break;
-			}
+		}
+		case LONG_T: {
+			CALC_CONV_op(op1, op2, LONG_T, lval);
+			dst->lval = op1->lval - op2->lval;
+			dst->type = LONG_T;
 			break;
-		case FLOAT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = FLOAT_T;
-					dst->dval = op1->fval - op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->fval = op1->fval - op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = FLOAT_T;
-					dst->fval = op1->fval - op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->fval - op2->dval;
-					break;
-			}
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(op1, op2, FLOAT_T, fval);
+			dst->fval = op1->fval - op2->fval;
+			dst->type = FLOAT_T;
 			break;
-		case DOUBLE_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval - op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval - op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval - op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval - op2->dval;
-					break;
-			}
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
+			dst->dval = op1->dval - op2->dval;
+			dst->type = DOUBLE_T;
 			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
 // dst = op1 * op2
 void calc_mul(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	switch (op1->type) {
-		case INT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = INT_T;
-					dst->ival = op1->ival * op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->ival * op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->ival * (double) op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->ival * (double) op2->dval;
-					break;
-			}
+	CALC_CONV_op_INIT();
+	
+	if(op1->type == STR_T) {
+		exp_val_t val1 = {INT_T, 0};
+		str2val(&val1, op1->str);
+		op1 = &val1;
+	}
+	if(op2->type == STR_T) {
+		exp_val_t val2 = {INT_T, 0};
+		str2val(&val2, op2->str);
+		op2 = &val2;
+	}
+	switch (max(op1->type, op2->type)) {
+		case INT_T: {
+			CALC_CONV_op(op1, op2, INT_T, ival);
+			dst->ival = op1->ival * op2->ival;
+			dst->type = INT_T;
 			break;
-		case LONG_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval * op2->ival;
-					break;
-				case LONG_T:
-					dst->type = LONG_T;
-					dst->lval = op1->lval * op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->lval * (double) op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->lval * op2->dval;
-					break;
-			}
+		}
+		case LONG_T: {
+			CALC_CONV_op(op1, op2, LONG_T, lval);
+			dst->lval = op1->lval * op2->lval;
+			dst->type = LONG_T;
 			break;
-		case FLOAT_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = FLOAT_T;
-					dst->fval = (double) op1->fval * (double) op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->fval * (double) op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->fval * (double) op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = (double) op1->fval * op2->dval;
-					break;
-			}
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(op1, op2, FLOAT_T, fval);
+			dst->fval = op1->fval * op2->fval;
+			dst->type = FLOAT_T;
 			break;
-		case DOUBLE_T:
-			switch (op2->type) {
-				case INT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval * (double) op2->ival;
-					break;
-				case LONG_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval * (double) op2->lval;
-					break;
-				case FLOAT_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval * (double) op2->fval;
-					break;
-				case DOUBLE_T:
-					dst->type = DOUBLE_T;
-					dst->dval = op1->dval * op2->dval;
-					break;
-			}
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
+			dst->dval = op1->dval * op2->dval;
+			dst->type = DOUBLE_T;
 			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
 // dst = op1 / op2
 void calc_div(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV(op1, op1, dval);
-	CALC_CONV(op2, op2, dval);
-	op1->type = DOUBLE_T;
-	op2->type = DOUBLE_T;
+	CALC_CONV_op_INIT();
+	CALC_CONV_op(op1, op2, DOUBLE_T, dval);
 
 	dst->type = DOUBLE_T;
-	dst->dval = op1->dval / op2->dval;
+	if(op2->dval) {
+		dst->dval = op1->dval / op2->dval;
+	} else {
+		dst->dval = 0.0;
+		yyerror("op1 / op2, op2==0!!!");
+	}
 }
 
 // dst = op1 % op2
 void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV(op1, op1, lval);
-	CALC_CONV(op2, op2, lval);
-	op1->type = LONG_T;
-	op2->type = LONG_T;
+	CALC_CONV_op_INIT();
+	CALC_CONV_op(op1, op2, LONG_T, lval);
 
 	dst->type = LONG_T;
 	if(op2->lval) {
@@ -316,6 +312,11 @@ void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 
 // dst = |src|
 void calc_abs(exp_val_t *dst, exp_val_t *src) {
+	if(src->type == STR_T) {
+		exp_val_t val1 = {INT_T, 0};
+		str2val(&val1, src->str);
+		src = &val1;
+	}
 	dst->type = src->type;
 	switch (src->type) {
 		CALC_ABS_DEF(dst, src,INT_T,ival);
@@ -329,21 +330,24 @@ void calc_abs(exp_val_t *dst, exp_val_t *src) {
 
 // dst = -src
 void calc_minus(exp_val_t *dst, exp_val_t *src) {
+	if(src->type == STR_T) {
+		exp_val_t val1 = {INT_T, 0};
+		str2val(&val1, src->str);
+		src = &val1;
+	}
 	dst->type = src->type;
 	switch (src->type) {
 		CALC_MINUS_DEF(dst, src, INT_T, ival);
-		CALC_MINUS_DEF(dst,src,LONG_T,lval);
-		CALC_MINUS_DEF(dst,src,FLOAT_T,fval);
-		CALC_MINUS_DEF(dst,src,DOUBLE_T,dval);
+		CALC_MINUS_DEF(dst, src, LONG_T, lval);
+		CALC_MINUS_DEF(dst, src, FLOAT_T, fval);
+		CALC_MINUS_DEF(dst, src, DOUBLE_T, dval);
 	}
 }
 
 // dst = pow(op1, op2)
 void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV(op1, op1, dval);
-	CALC_CONV(op2, op2, dval);
-	op1->type = DOUBLE_T;
-	op2->type = DOUBLE_T;
+	CALC_CONV_op_INIT();
+	CALC_CONV_op(op1, op2, DOUBLE_T, dval);
 
 	dst->type = DOUBLE_T;
 	dst->dval = pow(op1->dval, op2->dval);
@@ -353,6 +357,11 @@ void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 
 // dst = sqrt(src)
 void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
+	if(src->type == STR_T) {
+		exp_val_t val1 = {INT_T, 0};
+		str2val(&val1, src->str);
+		src = &val1;
+	}
 	dst->type = DOUBLE_T;
 	switch (src->type) {
 		CALC_SQRT_DEF(dst, src, INT_T, ival);
@@ -361,12 +370,6 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 		CALC_SQRT_DEF(dst,src,DOUBLE_T,dval);
 	}
 }
-
-#ifdef DEBUG
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s) (" str ")", types[type-INT_T],src->val);break
-#else
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
-#endif
 
 void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 	register int i;
@@ -400,8 +403,15 @@ void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 	printf("]");
 }
 
+#ifdef DEBUG
+#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s) (" str ")", types[type-NULL_T],src->val);break
+#else
+#define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
+#endif
+
 void calc_echo(exp_val_t *src) {
 	switch (src->type) {
+		CALC_ECHO_DEF(src, NULL_T, ival, "(null)");
 		CALC_ECHO_DEF(src, INT_T, ival, "%d");
 		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
 		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
@@ -412,6 +422,7 @@ void calc_echo(exp_val_t *src) {
 			break;
 	}
 }
+#undef CALC_ECHO_DEF
 
 #define CALC_SPRINTF(buf,src,type,val,str) case type: sprintf(buf,str,src->val);break
 // printf(src)
@@ -421,8 +432,10 @@ void calc_sprintf(char *buf, exp_val_t *src) {
 		CALC_SPRINTF(buf,src,LONG_T,lval,"%ld");
 		CALC_SPRINTF(buf,src,FLOAT_T,fval,"%.16f");
 		CALC_SPRINTF(buf,src,DOUBLE_T,dval,"%.19lf");
+		CALC_SPRINTF(buf,src,STR_T,str,"\"%s\"");
 	}
 }
+#undef CALC_SPRINTF
 
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
 	int result = va_arg(args, int);
@@ -430,9 +443,9 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 
 	printf("\x1b[34m");
 	if (result == ZEND_HASH_APPLY_KEEP) {
-		printf("    (%6s) %s = ", types[val->type - INT_T], key);
+		printf("    (%6s) %s = ", types[val->type - NULL_T], key);
 	} else {
-		printf("    remove variable %s, type is %s, value is ", key, types[val->type - INT_T]);
+		printf("    remove variable %s, type is %s, value is ", key, types[val->type - NULL_T]);
 	}
 	free(key);
 	calc_echo(val);
@@ -616,6 +629,7 @@ void calc_free_func(func_def_f *def) {
 
 	while (args) {
 		tmpArgs = args;
+		calc_free_expr(&args->val);
 		args = args->next;
 		free(tmpArgs->name);
 		free(tmpArgs);
@@ -634,11 +648,19 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		case DOUBLE_T:
 			memcpy(ret, expr, sizeof(exp_val_t));
 			break;
+		case STR_T:
+			CALC_CONV(ret, expr, str);
+			break;
 		case VAR_T: {
 			exp_val_t *ptr = NULL;
 			zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
 			if (ptr) {
-				memcpy(ret, ptr, sizeof(exp_val_t));
+				if(ptr->type < ARRAY_T) {
+					memcpy(ret, ptr, sizeof(exp_val_t));
+				}
+				if(ptr->type == STR_T) {
+					ret->str = strndup(ptr->str, ptr->strlen);
+				}
 			} else {
 				ret->type = INT_T;
 				ret->ival = 0;
@@ -651,7 +673,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		case DIV_T:
 		case MOD_T:
 		case POW_T: {
-			exp_val_t left, right;
+			exp_val_t left = {NULL_T}, right = {NULL_T};
 			calc_run_expr(&left, expr->left);
 			calc_run_expr(&right, expr->right);
 			switch (expr->type) {
@@ -674,17 +696,20 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 				calc_pow(ret, &left, &right);
 				break;
 			}
+			calc_free_expr(&left);
+			calc_free_expr(&right);
 			break;
 		}
 		case ABS_T:
 		case MINUS_T: {
-			exp_val_t val;
+			exp_val_t val = {NULL_T};
 			calc_run_expr(&val, expr->left);
 			if (expr->type == ABS_T) {
 				calc_abs(ret, &val);
 			} else {
 				calc_minus(ret, &val);
 			}
+			calc_free_expr(&val);
 			break;
 		}
 		case FUNC_T: {
@@ -700,6 +725,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					args = tmpArgs;
 				}
 
+				tmpArgs->val.type = NULL_T;
 				calc_run_expr(&tmpArgs->val, &callArgs->val);
 
 				tmpArgs->next = NULL;
@@ -719,7 +745,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		case LOGIC_LE_T:
 		case LOGIC_EQ_T:
 		case LOGIC_NE_T: {
-			exp_val_t left, right;
+			exp_val_t left = {NULL_T}, right = {NULL_T};
 
 			calc_run_expr(&left, expr->left);
 			calc_run_expr(&right, expr->right);
@@ -748,10 +774,12 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 				ret->ival = left.dval != right.dval;
 				break;
 			}
+			calc_free_expr(&left);
+			calc_free_expr(&right);
 			break;
 		}
 		case IF_T: {
-			exp_val_t cond;
+			exp_val_t cond = {NULL_T};
 
 			calc_run_expr(&cond, expr->cond);
 			CALC_CONV((&cond), (&cond), dval);
@@ -761,19 +789,20 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			} else {
 				calc_run_expr(ret, expr->right);
 			}
+			calc_free_expr(&cond);
 			break;
 		}
 		case ARRAY_T: {
 			exp_val_t *ptr = NULL;
 			zend_hash_find(&vars, expr->call.name, strlen(expr->call.name), (void**)&ptr);
 			if (ptr->type != ARRAY_T) {
-				yyerror("(warning) variable %s not is a array, type is %s", expr->call.name, types[ptr->type - INT_T]);
+				yyerror("(warning) variable %s not is a array, type is %s", expr->call.name, types[ptr->type - NULL_T]);
 			} else {
 				ret->type = INT_T;
 				ret->ival = 0;
 				call_args_t *args = expr->call.args;
 
-				exp_val_t *tmp = ptr, val;
+				exp_val_t *tmp = ptr, val = {NULL_T};
 				while (args) {
 					calc_run_expr(&val, &args->val);
 					CALC_CONV((&val), (&val), ival);
@@ -788,7 +817,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 							if (args->next) {
 								yyerror("An array of %s dimension bounds", expr->call.name);
 							} else {
-								memcpy(ret, tmp, sizeof(exp_val_t));
+								calc_run_expr(ret, tmp);
 							}
 							return;
 						}
@@ -838,9 +867,10 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 						printf("null");
 						break;
 					default: {
-						exp_val_t val;
+						exp_val_t val = {NULL_T};
 						calc_run_expr(&val, &args->val);
 						calc_echo(&val);
+						calc_free_expr(&val);
 						break;
 					}
 					}
@@ -853,19 +883,20 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				return RET_STATUS;
 			}
 			case IF_STMT_T: {
-				exp_val_t cond;
+				exp_val_t cond = {NULL_T};
 
 				calc_run_expr(&cond, syms->cond);
 				CALC_CONV((&cond), (&cond), dval);
 
 				status_enum_t status = (cond.dval ? calc_run_syms(ret, syms->lsyms) : calc_run_syms(ret, syms->rsyms));
+				calc_free_expr(&cond);
 				if (status != NONE_STATUS) {
 					return status;
 				}
 				break;
 			}
 			case WHILE_STMT_T: {
-				exp_val_t cond;
+				exp_val_t cond = {NULL_T};
 
 				calc_run_expr(&cond, syms->cond);
 				CALC_CONV((&cond), (&cond), dval);
@@ -874,21 +905,24 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				while (cond.dval) {
 					status = calc_run_syms(ret, syms->lsyms);
 					if (status != NONE_STATUS) {
+						calc_free_expr(&cond);
 						return status;
 					}
 
 					calc_run_expr(&cond, syms->cond);
 					CALC_CONV((&cond), (&cond), dval);
 				}
+				calc_free_expr(&cond);
 				break;
 			}
 			case DO_WHILE_STMT_T: {
-				exp_val_t cond;
+				exp_val_t cond = {NULL_T};
 				status_enum_t status;
 
 				do {
 					status = calc_run_syms(ret, syms->lsyms);
 					if (status == RET_STATUS) {
+						calc_free_expr(&cond);
 						return status;
 					} else if (status == BREAK_STATUS) {
 						break;
@@ -897,6 +931,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 					calc_run_expr(&cond, syms->cond);
 					CALC_CONV((&cond), (&cond), dval);
 				} while (cond.dval);
+				calc_free_expr(&cond);
 				break;
 			}
 			case BREAK_STMT_T: {
@@ -911,11 +946,12 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				break;
 			}
 			case ARRAY_STMT_T: {
-				exp_val_t val;
+				exp_val_t val = {NULL_T};
 				call_args_t *callArgs = syms->args->next;
 				call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
 
 				while (callArgs) {
+					tmpArgs->val.type = NULL_T;
 					calc_run_expr(&tmpArgs->val, &callArgs->val);
 					CALC_CONV((&tmpArgs->val), (&tmpArgs->val), ival);
 					tmpArgs->val.type = INT_T;
@@ -982,7 +1018,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 			case MULEQ_STMT_T:
 			case DIVEQ_STMT_T:
 			case MODEQ_STMT_T: {
-				exp_val_t val;
+				exp_val_t val = {NULL_T};
 				
 				calc_run_expr(&val, syms->val);
 				
@@ -994,20 +1030,28 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 							switch(syms->type) {
 								case ADDEQ_STMT_T:
 									calc_add(ptr, ptr, &val);
+									calc_free_expr(&val);
 									break;
 								case SUBEQ_STMT_T:
 									calc_sub(ptr, ptr, &val);
+									calc_free_expr(&val);
 									break;
 								case MULEQ_STMT_T:
 									calc_mul(ptr, ptr, &val);
+									calc_free_expr(&val);
 									break;
 								case DIVEQ_STMT_T:
 									calc_div(ptr, ptr, &val);
+									calc_free_expr(&val);
 									break;
 								case MODEQ_STMT_T:
 									calc_mod(ptr, ptr, &val);
+									calc_free_expr(&val);
 									break;
 								default:
+									if(ptr->type == STR_T) {
+										free(ptr->str);
+									}
 									memcpy(ptr, &val, sizeof(exp_val_t));
 									break;
 							}
@@ -1020,11 +1064,11 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 						exp_val_t *ptr = NULL;
 						zend_hash_find(&vars, syms->var->call.name, strlen(syms->var->call.name), (void**)&ptr);
 						if (ptr->type != ARRAY_T) {
-							yyerror("(warning) variable %s not is a array, type is %s", syms->var->call.name, types[ptr->type - INT_T]);
+							yyerror("(warning) variable %s not is a array, type is %s", syms->var->call.name, types[ptr->type - NULL_T]);
 						} else {
 							call_args_t *args = syms->var->call.args;
 
-							exp_val_t *tmp = ptr, argsVal;
+							exp_val_t *tmp = ptr, argsVal = {NULL_T};
 							while (args) {
 								calc_run_expr(&argsVal, &args->val);
 								CALC_CONV((&argsVal), (&argsVal), ival);
@@ -1043,6 +1087,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 												switch(syms->type) {
 													case SUBEQ_STMT_T:
 														calc_minus(tmp, &val);
+														calc_free_expr(&val);
 														break;
 													case MULEQ_STMT_T:
 													case DIVEQ_STMT_T:
@@ -1058,20 +1103,28 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 												switch(syms->type) {
 													case ADDEQ_STMT_T:
 														calc_add(tmp, tmp, &val);
+														calc_free_expr(&val);
 														break;
 													case SUBEQ_STMT_T:
 														calc_sub(tmp, tmp, &val);
+														calc_free_expr(&val);
 														break;
 													case MULEQ_STMT_T:
 														calc_mul(tmp, tmp, &val);
+														calc_free_expr(&val);
 														break;
 													case DIVEQ_STMT_T:
 														calc_div(tmp, tmp, &val);
+														calc_free_expr(&val);
 														break;
 													case MODEQ_STMT_T:
 														calc_mod(tmp, tmp, &val);
+														calc_free_expr(&val);
 														break;
 													default:
+														if(tmp->type == STR_T) {
+															free(tmp->str);
+														}
 														memcpy(tmp, &val, sizeof(exp_val_t));
 														break;
 												}
@@ -1095,8 +1148,9 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				break;
 			}
 			case FUNC_STMT_T: {
-				exp_val_t val;
+				exp_val_t val = {NULL_T};
 				calc_run_expr(&val, syms->expr);
+				calc_free_expr(&val);
 				break;
 			}
 			case SRAND_STMT_T: {
@@ -1117,7 +1171,7 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 	func_args_t *funcArgs = def->args;
 	func_symbol_t *syms;
 	call_args_t *_args;
-	exp_val_t val;
+	exp_val_t val = {NULL_T};
 	
 	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
 
@@ -1126,7 +1180,7 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 			calc_run_expr(&val, &tmpArgs->val);
 			tmpArgs = tmpArgs->next;
 		} else {
-			val = funcArgs->val;
+			calc_run_expr(&val, &funcArgs->val);
 		}
 		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
 		funcArgs = funcArgs->next;
@@ -1388,7 +1442,7 @@ void call_free_vars(exp_val_t *expr) {
 			break;
 		}
 		default: {
-			dprintf("--- FreeVars: %s ---\n", types[expr->type - INT_T]);
+			dprintf("--- FreeVars: %s ---\n", types[expr->type - NULL_T]);
 		}
 	}
 }
@@ -1475,8 +1529,7 @@ int main(int argc, char **argv) {
 						case 'S':
 							isSyntaxData = 0;
 							break;
-						default:
-							break;
+						EMPTY_SWITCH_DEFAULT_CASE()
 					}
 				} else {
 					yyrestart(stdin);
