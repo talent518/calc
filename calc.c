@@ -713,30 +713,41 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case FUNC_T: {
-			call_args_t *args = NULL, *tmpArgs = NULL, *callArgs = expr->call.args;
+			call_args_t *tmpArgs = NULL;
 			unsigned argc = 0;
 
-			while (callArgs) {
-				if (tmpArgs) {
-					tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
+			if(expr->call.rawArgs) {
+				tmpArgs = expr->call.args;
+				while(tmpArgs) {
+					argc++;
+					
 					tmpArgs = tmpArgs->next;
-				} else {
-					tmpArgs = (call_args_t*) malloc(sizeof(call_args_t));
-					args = tmpArgs;
+				}
+				calc_call(ret, expr->call.type, expr->call.name, argc, expr->call.args);
+			} else {
+				call_args_t *args = NULL, *callArgs = expr->call.args;
+				while (callArgs) {
+					if (tmpArgs) {
+						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
+						tmpArgs = tmpArgs->next;
+					} else {
+						tmpArgs = (call_args_t*) malloc(sizeof(call_args_t));
+						args = tmpArgs;
+					}
+
+					tmpArgs->val.type = NULL_T;
+					calc_run_expr(&tmpArgs->val, &callArgs->val);
+
+					tmpArgs->next = NULL;
+
+					callArgs = callArgs->next;
+					argc++;
 				}
 
-				tmpArgs->val.type = NULL_T;
-				calc_run_expr(&tmpArgs->val, &callArgs->val);
+				calc_call(ret, expr->call.type, expr->call.name, argc, args);
 
-				tmpArgs->next = NULL;
-
-				callArgs = callArgs->next;
-				argc++;
+				calc_free_args(args);
 			}
-
-			calc_call(ret, expr->call.type, expr->call.name, argc, args);
-
-			calc_free_args(args);
 			break;
 		}
 		case LOGIC_GT_T:
@@ -1289,8 +1300,7 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 	case ATAN_F:
 	case CTAN_F:
 	case RAD_F:
-		CALC_CONV((ret), (&(args->val)), dval)
-		;
+		CALC_CONV((ret), (&(args->val)), dval);
 		ret->type = DOUBLE_T;
 		switch (ftype) {
 		case SIN_F:
@@ -1346,6 +1356,46 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 		}
 		break;
 	}
+	case STRLEN_F:
+		ret->type = LONG_T;
+		switch(args->val.type) {
+			case STR_T:
+				ret->lval = (long int) args->val.strlen;
+				break;
+			
+			case VAR_T: {
+				exp_val_t *ptr = NULL;
+			
+				zend_hash_find(&vars, args->val.str, strlen(args->val.str), (void**)&ptr);
+				
+				if(ptr) {
+					if(ptr->type == STR_T) {
+						ret->lval = (long int) ptr->strlen;
+					} else {
+						CALC_CONV(ptr, ptr, str);
+						ret->lval = (long int) ptr->strlen;
+					}
+				}
+				break;
+			}
+			default: {
+				exp_val_t val = {NULL_T};
+				
+				calc_run_expr(&val, &args->val);
+
+				if(val.type == STR_T) {
+					ret->lval = (long int) val.strlen;
+				} else {
+					CALC_CONV(&val, &val, str);
+					ret->lval = (long int) val.strlen;
+				}
+				
+				calc_free_expr(&val);
+				
+				break;
+			}
+		}
+		break;
 	default:
 		yyerror("undefined system function for %s\n", name);
 		break;

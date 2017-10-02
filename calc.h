@@ -43,7 +43,7 @@ typedef enum _type_enum_t {
 } type_enum_t;
 
 typedef enum _call_enum_f {
-	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F
+	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F
 } call_enum_f;
 
 typedef enum _symbol_enum_t {
@@ -84,6 +84,7 @@ struct _func_call_f {
 	call_enum_f type;
 	char *name;
 	unsigned argc;
+	char rawArgs;
 	call_args_t *args;
 };
 

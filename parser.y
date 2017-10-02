@@ -172,8 +172,8 @@ stmtExpr: VARIABLE
  | CALL '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call.args=$3.call.args; } } // 系统函数
  | callExpr
 ;
-callExpr: VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL; } } // 用户自定义函数
- | VARIABLE '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=$3.call.args; } } // 用户自定义函数
+callExpr: VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL;$$.call.rawArgs=0; } } // 用户自定义函数
+ | VARIABLE '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=$3.call.args;$$.call.rawArgs=0; } } // 用户自定义函数
 ;
 stmtExprArgList: stmtExprArg
  | stmtExprArgList ',' stmtExprArg { if(EXPECTED(isSyntaxData)) { APPEND($$.call.args,$3.call.args); } }
