@@ -9,6 +9,8 @@
 #include <float.h>
 #include <limits.h>
 
+//#define inline __inline
+
 #include "zend_hash.h"
 
 #define max(a, b) ((a)>(b) ? (a) : (b))
@@ -43,7 +45,7 @@ typedef enum _type_enum_t {
 } type_enum_t;
 
 typedef enum _call_enum_f {
-	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F
+	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F
 } call_enum_f;
 
 typedef enum _symbol_enum_t {
@@ -235,6 +237,16 @@ extern int exitCode;
 	if(!yywrap()) { \
 		yypop_buffer_state(); \
 	}
+
+static inline double microtime() {
+	struct timeval tp = {0};
+
+	if (gettimeofday(&tp, NULL)) {
+		return (double)time((time_t*)NULL);
+	}
+
+	return (double)(tp.tv_sec + tp.tv_usec / 1000000.00);
+}
 
 #define YYERROR_VERBOSE 1
 #define YY_(s) s"\n"

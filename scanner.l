@@ -141,6 +141,7 @@ inline void unescape(char *p) {
 "/="                                           { return DIVEQ; }
 "%="                                           { return MODEQ; }
 "srand"                                        { return SRAND; }
+"microtime"                                    { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=MICROTIME_F;yylval.call.argc=0;yylval.call.name="microtime()";yylval.call.rawArgs=0;} return CALL; }
 "cos"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=COS_F;yylval.call.argc=1;yylval.call.name="cos(double radian)";yylval.call.rawArgs=0;} return CALL; }
 "pow"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=POW_F;yylval.call.argc=2;yylval.call.name="pow(double base, double exp)";yylval.call.rawArgs=0;} return CALL; }
 "rad"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=RAD_F;yylval.call.argc=1;yylval.call.name="rad(double angle)";yylval.call.rawArgs=0;} return CALL; }

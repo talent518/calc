@@ -1186,7 +1186,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				break;
 			}
 			case SRAND_STMT_T: {
-				seed_rand();
+				srand((unsigned int) microtime());
 				break;
 			}
 		}
@@ -1396,22 +1396,14 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 			}
 		}
 		break;
+	case MICROTIME_F:
+		ret->type = DOUBLE_T;
+		ret->dval = microtime();
+		break;
 	default:
 		yyerror("undefined system function for %s\n", name);
 		break;
 	}
-}
-
-// 产生随即种子
-void seed_rand() {
-	struct timeval tp = { 0 };
-
-	if (gettimeofday(&tp, NULL)) {
-		srand((unsigned int) time((time_t*)NULL));
-		return;
-	}
-
-	srand((unsigned int) (tp.tv_sec + tp.tv_usec));
 }
 
 void calc_free_expr(exp_val_t *expr) {
