@@ -172,6 +172,11 @@ inline void unescape(char *p) {
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
 "TOP"                                          { /* 忽略TOP关键字 */ }
+"int"                                          { /* 忽略int关键字 */ }
+"long"                                         { /* 忽略long关键字 */ }
+"float"                                        { /* 忽略float关键字 */ }
+"double"                                       { /* 忽略double关键字 */ }
+"string"                                       { /* 忽略string关键字 */ }
 ([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {str2val(&yylval, yytext);} return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.str=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);} return VARIABLE; }
 \"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;yylval.str=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str);yylval.strlen=strlen(yylval.str);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL); return STR; }
