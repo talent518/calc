@@ -183,10 +183,10 @@ void calc_free_func(func_def_f *def);
 void calc_run_expr(exp_val_t *ret, exp_val_t *expr);
 void calc_free_expr(exp_val_t *expr);
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
-void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args);
+void calc_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args);
 void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, call_args_t *args);
 
-void call_free_vars(exp_val_t *expr);
+void calc_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
 
 void str2val(exp_val_t *val, char *str);

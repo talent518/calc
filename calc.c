@@ -794,15 +794,33 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		}
 		case ARRAY_T: {
 			exp_val_t *ptr = NULL;
+			exp_val_t val = {NULL_T};
+			call_args_t *args = expr->call.args;
 			zend_hash_find(&vars, expr->call.name, strlen(expr->call.name), (void**)&ptr);
-			if (ptr->type != ARRAY_T) {
+			if(!ptr) {
+				yyerror("(warning) variable %s not exists, cannot read array or string value.", expr->call.name);
+			} else if (ptr->type == STR_T) {
+				str_array_access:
+				if(args->next) {
+					yyerror("An string of %s dimension bounds.", expr->call.name);
+					break;
+				}
+				calc_run_expr(&val, &args->val);
+				CALC_CONV((&val), (&val), ival);
+				if(val.ival<0 || val.ival>=ptr->strlen) {
+					yyerror("An string of %s index out of bounds", expr->call.name);
+					break;
+				}
+				ret->type = STR_T;
+				ret->str = strndup(ptr->str+val.ival, 1);
+				ret->strlen = 1;
+			} else if (ptr->type != ARRAY_T) {
 				yyerror("(warning) variable %s not is a array, type is %s", expr->call.name, types[ptr->type - NULL_T]);
 			} else {
 				ret->type = INT_T;
 				ret->ival = 0;
-				call_args_t *args = expr->call.args;
 
-				exp_val_t *tmp = ptr, val = {NULL_T};
+				exp_val_t *tmp = ptr;
 				while (args) {
 					calc_run_expr(&val, &args->val);
 					CALC_CONV((&val), (&val), ival);
@@ -813,7 +831,11 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 
 					if (val.ival < tmp->arrlen) {
 						tmp = &tmp->array[val.ival];
-						if (tmp->type != ARRAY_T) {
+						if (tmp->type == STR_T && args->next) {
+							args = args->next;
+							ptr = tmp;
+							goto str_array_access;
+						} else if (tmp->type != ARRAY_T) {
 							if (args->next) {
 								yyerror("An array of %s dimension bounds", expr->call.name);
 							} else {
@@ -823,7 +845,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 						}
 					} else {
 						yyerror("An array of %s index out of bounds", expr->call.name);
-						tmp = NULL;
 						return;
 					}
 
@@ -1165,7 +1186,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	return NONE_STATUS;
 }
 
-void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
+void calc_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 	HashTable tmpVars = vars;
 	call_args_t *tmpArgs = args;
 	func_args_t *funcArgs = def->args;
@@ -1173,7 +1194,7 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 	call_args_t *_args;
 	exp_val_t val = {NULL_T};
 	
-	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
+	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 
 	while (funcArgs) {
 		if(tmpArgs) {
@@ -1234,7 +1255,7 @@ void call_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
 		
 		syms = syms->next;
 	}
-	vars.pDestructor = (dtor_func_t)call_free_vars;
+	vars.pDestructor = (dtor_func_t)calc_free_vars;
 	zend_hash_destroy(&vars);
 
 	vars = tmpVars;
@@ -1318,7 +1339,7 @@ void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, cal
 			dprintf("call user function for %s\n", def->names);
 
 			linenostack[++linenostacktop].funcname = name;
-			call_func_run(ret, def, args);
+			calc_func_run(ret, def, args);
 			linenostacktop--;
 		} else {
 			yyerror("undefined user function for %s\n", name);
@@ -1428,7 +1449,7 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 	free(ptr->array);
 }
 
-void call_free_vars(exp_val_t *expr) {
+void calc_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
 			dprintf("--- FreeVars: ARRAY_T ---\n");
@@ -1486,7 +1507,7 @@ static void free_frees(char *s) {
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&frees, 20, NULL);
-	zend_hash_init(&vars, 2, (dtor_func_t)call_free_vars);
+	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
 	#define USAGE() printf("Usage: %s { -v | -h | - | files.. }\n" \
