@@ -638,6 +638,81 @@ void calc_free_func(func_def_f *def) {
 	calc_free_syms(def->syms);
 }
 
+inline void calc_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
+	HashTable tmpVars = vars;
+	call_args_t *tmpArgs = args;
+	func_args_t *funcArgs = def->args;
+	func_symbol_t *syms;
+	call_args_t *_args;
+	exp_val_t val = {NULL_T};
+	
+	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
+
+	while (funcArgs) {
+		if(tmpArgs) {
+			calc_run_expr(&val, &tmpArgs->val);
+			tmpArgs = tmpArgs->next;
+		} else {
+			calc_run_expr(&val, &funcArgs->val);
+		}
+		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
+		funcArgs = funcArgs->next;
+	}
+
+	syms = def->syms;
+	while(syms) {
+		if(syms->type != GLOBAL_T) {
+			syms = syms->next;
+			continue;
+		}
+		
+		_args = syms->args;
+		while(_args) {
+			exp_val_t *ptr = NULL;
+			
+			zend_hash_find(&tmpVars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
+			if(ptr) {
+				zend_hash_add(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+			}
+			_args = _args->next;
+		}
+		
+		syms = syms->next;
+	}
+
+	calc_run_syms(ret, def->syms);
+	
+	vars.pDestructor = NULL;
+	
+	syms = def->syms;
+	while(syms) {
+		if(syms->type != GLOBAL_T) {
+			syms = syms->next;
+			continue;
+		}
+		
+		_args = syms->args;
+		while(_args) {
+			exp_val_t *ptr = NULL;
+			
+			zend_hash_find(&vars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
+			if(ptr) {
+				if(_args->val.type != ARRAY_T) {
+					zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
+				}
+				zend_hash_del(&vars, _args->val.str, strlen(_args->val.str));
+			}
+			_args = _args->next;
+		}
+		
+		syms = syms->next;
+	}
+	vars.pDestructor = (dtor_func_t)calc_free_vars;
+	zend_hash_destroy(&vars);
+
+	vars = tmpVars;
+}
+
 void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 	memset(ret, 0, sizeof(exp_val_t));
 
@@ -714,16 +789,40 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		}
 		case FUNC_T: {
 			call_args_t *tmpArgs = NULL;
+			call_args_t *args = NULL;
 			unsigned argc = 0;
 
-			if(expr->call.rawArgs) {
+			if(expr->call.type == USER_F) {
+				func_def_f *def = NULL;
+				zend_hash_find(&funcs, expr->call.name, strlen(expr->call.name), (void**)&def);
+				if (def) {
+					if (argc > def->argc || argc < def->minArgc) {
+						//printf("minArgc=%d, argc=%d, argc=%d\n", def->minArgc, argc, def->argc);
+						yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.", expr->call.name, def->argc, def->minArgc, argc);
+					}
+
+					dprintf("call user function for %s\n", def->names);
+
+					linenostack[++linenostacktop].funcname = expr->call.name;
+					calc_func_run(ret, def, args);
+					linenostacktop--;
+				} else {
+					yyerror("undefined user function for %s\n", expr->call.name);
+				}
+				break;
+			} else if(expr->call.rawArgs) {
+				args = expr->call.args;
 				tmpArgs = expr->call.args;
 				while(tmpArgs) {
 					argc++;
 					
 					tmpArgs = tmpArgs->next;
 				}
-				calc_call(ret, expr->call.type, expr->call.name, argc, expr->call.args);
+				
+				if (expr->call.argc != argc) {
+					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->call.name, expr->call.argc, argc);
+					break;
+				}
 			} else {
 				call_args_t *args = NULL, *callArgs = expr->call.args;
 				while (callArgs) {
@@ -743,9 +842,116 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					callArgs = callArgs->next;
 					argc++;
 				}
+				
+				if (expr->call.argc != argc) {
+					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->call.name, expr->call.argc, argc);
+					calc_free_args(args);
+					break;
+				}
+			}
 
-				calc_call(ret, expr->call.type, expr->call.name, argc, args);
+			switch (expr->call.type) {
+				case SQRT_F:
+					calc_sqrt(ret, &(args->val)); // 开方
+					break;
+				case POW_F:
+					calc_pow(ret, &args->val, &args->next->val); // 乘方
+					break;
+				case SIN_F:
+				case ASIN_F:
+				case COS_F:
+				case ACOS_F:
+				case TAN_F:
+				case ATAN_F:
+				case CTAN_F:
+				case RAD_F:
+					CALC_CONV(&args->val, &args->val, dval);
+					ret->type = DOUBLE_T;
+					switch (expr->call.type) {
+					case SIN_F:
+						ret->dval = sin(args->val.dval); // 正弦
+						break;
+					case ASIN_F:
+						ret->dval = asin(args->val.dval); // 反正弦
+						break;
+					case COS_F:
+						ret->dval = cos(args->val.dval); // 余弦
+						break;
+					case ACOS_F:
+						ret->dval = acos(args->val.dval); // 反余弦
+						break;
+					case TAN_F:
+						ret->dval = tan(args->val.dval); // 正切
+						break;
+					case ATAN_F:
+						ret->dval = atan(args->val.dval); // 反正切
+						break;
+					case CTAN_F:
+						ret->dval = ctan(args->val.dval); // 余切
+						break;
+					case RAD_F:
+						ret->dval = args->val.dval * M_PI / 180.0; // 弧度 - 双精度类型
+						break;
+					}
+					break;
+				case RAND_F:
+					ret->type = INT_T;
+					ret->ival = rand();
+					break;
+				case RANDF_F:
+					ret->type = DOUBLE_T;
+					ret->dval = (double) rand() / (double) RAND_MAX;
+					break;
+				case STRLEN_F:
+					ret->type = LONG_T;
+					switch(args->val.type) {
+						case STR_T:
+							ret->lval = (long int) args->val.strlen;
+							break;
 
+						case VAR_T: {
+							exp_val_t *ptr = NULL;
+
+							zend_hash_find(&vars, args->val.str, strlen(args->val.str), (void**)&ptr);
+	
+							if(ptr) {
+								if(ptr->type == STR_T) {
+									ret->lval = (long int) ptr->strlen;
+								} else {
+									CALC_CONV(ptr, ptr, str);
+									ret->lval = (long int) ptr->strlen;
+								}
+							}
+							break;
+						}
+						default: {
+							exp_val_t val = {NULL_T};
+	
+							calc_run_expr(&val, &args->val);
+
+							if(val.type == STR_T) {
+								ret->lval = (long int) val.strlen;
+							} else {
+								CALC_CONV(&val, &val, str);
+								ret->lval = (long int) val.strlen;
+							}
+	
+							calc_free_expr(&val);
+	
+							break;
+						}
+					}
+					break;
+				case MICROTIME_F:
+					ret->type = DOUBLE_T;
+					ret->dval = microtime();
+					break;
+				default:
+					yyerror("undefined system function for %s\n", expr->call.name);
+					break;
+			}
+
+			if(args != expr->call.args) {
 				calc_free_args(args);
 			}
 			break;
@@ -1195,215 +1401,6 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	}
 
 	return NONE_STATUS;
-}
-
-void calc_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
-	HashTable tmpVars = vars;
-	call_args_t *tmpArgs = args;
-	func_args_t *funcArgs = def->args;
-	func_symbol_t *syms;
-	call_args_t *_args;
-	exp_val_t val = {NULL_T};
-	
-	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
-
-	while (funcArgs) {
-		if(tmpArgs) {
-			calc_run_expr(&val, &tmpArgs->val);
-			tmpArgs = tmpArgs->next;
-		} else {
-			calc_run_expr(&val, &funcArgs->val);
-		}
-		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
-		funcArgs = funcArgs->next;
-	}
-
-	syms = def->syms;
-	while(syms) {
-		if(syms->type != GLOBAL_T) {
-			syms = syms->next;
-			continue;
-		}
-		
-		_args = syms->args;
-		while(_args) {
-			exp_val_t *ptr = NULL;
-			
-			zend_hash_find(&tmpVars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
-			if(ptr) {
-				zend_hash_add(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
-			}
-			_args = _args->next;
-		}
-		
-		syms = syms->next;
-	}
-
-	calc_run_syms(ret, def->syms);
-	
-	vars.pDestructor = NULL;
-	
-	syms = def->syms;
-	while(syms) {
-		if(syms->type != GLOBAL_T) {
-			syms = syms->next;
-			continue;
-		}
-		
-		_args = syms->args;
-		while(_args) {
-			exp_val_t *ptr = NULL;
-			
-			zend_hash_find(&vars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
-			if(ptr) {
-				if(_args->val.type != ARRAY_T) {
-					zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
-				}
-				zend_hash_del(&vars, _args->val.str, strlen(_args->val.str));
-			}
-			_args = _args->next;
-		}
-		
-		syms = syms->next;
-	}
-	vars.pDestructor = (dtor_func_t)calc_free_vars;
-	zend_hash_destroy(&vars);
-
-	vars = tmpVars;
-}
-
-void calc_call(exp_val_t *ret, call_enum_f ftype, char *name, unsigned argc, call_args_t *args) {
-	call_args_t *tmpArgs = args;
-	unsigned _argc = 0;
-	while (tmpArgs) {
-		_argc++;
-		tmpArgs = tmpArgs->next;
-	}
-
-	if (ftype != USER_F && _argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d. %s", name, _argc);
-		exit(0);
-	}
-
-	switch (ftype) {
-	case SQRT_F:
-		calc_sqrt(ret, &(args->val)); // 开方
-		break;
-	case POW_F:
-		calc_pow(ret, &(args->val), &(args->next->val)); // 乘方
-		break;
-	case SIN_F:
-	case ASIN_F:
-	case COS_F:
-	case ACOS_F:
-	case TAN_F:
-	case ATAN_F:
-	case CTAN_F:
-	case RAD_F:
-		CALC_CONV((ret), (&(args->val)), dval);
-		ret->type = DOUBLE_T;
-		switch (ftype) {
-		case SIN_F:
-			ret->dval = sin(ret->dval); // 正弦
-			break;
-		case ASIN_F:
-			ret->dval = asin(ret->dval); // 反正弦
-			break;
-		case COS_F:
-			ret->dval = cos(ret->dval); // 余弦
-			break;
-		case ACOS_F:
-			ret->dval = acos(ret->dval); // 反余弦
-			break;
-		case TAN_F:
-			ret->dval = tan(ret->dval); // 正切
-			break;
-		case ATAN_F:
-			ret->dval = atan(ret->dval); // 反正切
-			break;
-		case CTAN_F:
-			ret->dval = ctan(ret->dval); // 余切
-			break;
-		case RAD_F:
-			ret->dval = ret->dval * M_PI / 180.0; // 弧度 - 双精度类型
-			break;
-		}
-		break;
-	case RAND_F:
-		ret->type = INT_T;
-		ret->ival = rand();
-		break;
-	case RANDF_F:
-		ret->type = DOUBLE_T;
-		ret->dval = (double) rand() / (double) RAND_MAX;
-		break;
-	case USER_F: {
-		func_def_f *def = NULL;
-		zend_hash_find(&funcs, name, strlen(name), (void**)&def);
-		if (def) {
-			if (_argc > def->argc || _argc < def->minArgc) {
-				//printf("minArgc=%d, _argc=%d, argc=%d\n", def->minArgc, _argc, def->argc);
-				yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d. %s", name, def->argc, def->minArgc, _argc);
-			}
-
-			dprintf("call user function for %s\n", def->names);
-
-			linenostack[++linenostacktop].funcname = name;
-			calc_func_run(ret, def, args);
-			linenostacktop--;
-		} else {
-			yyerror("undefined user function for %s\n", name);
-		}
-		break;
-	}
-	case STRLEN_F:
-		ret->type = LONG_T;
-		switch(args->val.type) {
-			case STR_T:
-				ret->lval = (long int) args->val.strlen;
-				break;
-			
-			case VAR_T: {
-				exp_val_t *ptr = NULL;
-			
-				zend_hash_find(&vars, args->val.str, strlen(args->val.str), (void**)&ptr);
-				
-				if(ptr) {
-					if(ptr->type == STR_T) {
-						ret->lval = (long int) ptr->strlen;
-					} else {
-						CALC_CONV(ptr, ptr, str);
-						ret->lval = (long int) ptr->strlen;
-					}
-				}
-				break;
-			}
-			default: {
-				exp_val_t val = {NULL_T};
-				
-				calc_run_expr(&val, &args->val);
-
-				if(val.type == STR_T) {
-					ret->lval = (long int) val.strlen;
-				} else {
-					CALC_CONV(&val, &val, str);
-					ret->lval = (long int) val.strlen;
-				}
-				
-				calc_free_expr(&val);
-				
-				break;
-			}
-		}
-		break;
-	case MICROTIME_F:
-		ret->type = DOUBLE_T;
-		ret->dval = microtime();
-		break;
-	default:
-		yyerror("undefined system function for %s\n", name);
-		break;
-	}
 }
 
 void calc_free_expr(exp_val_t *expr) {
