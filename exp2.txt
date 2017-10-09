@@ -128,7 +128,7 @@ func trigon() {
 
 trigon();
 
-srand;
+srand();
 
 echo "RAND_MAX = ", RAND_MAX, endl;
 echo "rand() = ", rand(), endl;
@@ -214,7 +214,7 @@ function assign2() {
 	}
 
 	i = 0;
-	rnd = rand()%20;
+	rnd = 1+rand()%20;
 	while(i<2) {
 		arr[i]%=rnd;
 		echo "arr[",i,"] %= ",rnd," = ", arr[i],endl;
@@ -243,5 +243,5 @@ func assign3() {
 	echo assign2();
 }
 
-srand;
+srand();
 assign3();

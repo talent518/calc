@@ -45,7 +45,7 @@ typedef enum _type_enum_t {
 } type_enum_t;
 
 typedef enum _call_enum_f {
-	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F
+	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F
 } call_enum_f;
 
 typedef enum _symbol_enum_t {
@@ -67,7 +67,6 @@ typedef enum _symbol_enum_t {
 	DIVEQ_STMT_T, // var /= val
 	MODEQ_STMT_T, // var %= val
 	FUNC_STMT_T, // demo(); demo(1,2,3);
-	SRAND_STMT_T, // srand();
 	NULL_STMT_T
 } symbol_enum_t;
 

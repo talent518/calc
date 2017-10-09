@@ -140,7 +140,7 @@ inline void unescape(char *p) {
 "*="                                           { return MULEQ; }
 "/="                                           { return DIVEQ; }
 "%="                                           { return MODEQ; }
-"srand"                                        { return SRAND; }
+"srand"                                        { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=SRAND_F;yylval.call.argc=0;yylval.call.name="srand()";yylval.call.rawArgs=0;} return CALL; }
 "microtime"                                    { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=MICROTIME_F;yylval.call.argc=0;yylval.call.name="microtime()";yylval.call.rawArgs=0;} return CALL; }
 "cos"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=COS_F;yylval.call.argc=1;yylval.call.name="cos(double radian)";yylval.call.rawArgs=0;} return CALL; }
 "pow"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;yylval.call.type=POW_F;yylval.call.argc=2;yylval.call.name="pow(double base, double exp)";yylval.call.rawArgs=0;} return CALL; }
@@ -187,34 +187,3 @@ inline void unescape(char *p) {
 
 %%
 
-int yywrap() {
-	dprintf("--------------------------\n");
-	dprintf("END INPUT: %s\n", curFileName);
-	dprintf("==========================\n");
-
-	if(includeDeep>0) {
-		zend_hash_del(&files, curFileName, strlen(curFileName));
-
-		includeDeep--;
-
-		if(EXPECTED(isSyntaxData)) {
-			free(curFileName);
-		}
-
-		fclose(yyin);
-		curFileName = tailWrapStack->filename;
-		yylineno = tailWrapStack->lineno;
-
-		wrap_stack_t *ptr = tailWrapStack;
-
-		tailWrapStack = tailWrapStack->prev;
-
-		free(ptr);
-
-		yypop_buffer_state();
-
-		return 0;
-	} else {
-		return 1;
-	}
-}

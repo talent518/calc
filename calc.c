@@ -28,7 +28,7 @@ char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 			char *__p = (src)->str; \
 			type_enum_t __type = (dst)->type; \
 			CALC_CONV_str2##val(dst, src); \
-			if((dst) != (src) && __type == STR_T) { \
+			if(((dst) != (src) && __type == STR_T) || ((dst) == (src) && (dst)->type != STR_T)) { \
 				free(__p); \
 			} \
 			break; \
@@ -304,7 +304,7 @@ void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 		dst->lval = op1->lval % op2->lval;
 	} else {
 		dst->lval = 0;
-		yyerror("op1 % op2, op2==0!!!");
+		yyerror("op1 %% op2, op2==0!!!");
 	}
 }
 
@@ -638,82 +638,14 @@ void calc_free_func(func_def_f *def) {
 	calc_free_syms(def->syms);
 }
 
-inline void calc_func_run(exp_val_t *ret, func_def_f *def, call_args_t *args) {
-	HashTable tmpVars = vars;
-	call_args_t *tmpArgs = args;
-	func_args_t *funcArgs = def->args;
-	func_symbol_t *syms;
-	call_args_t *_args;
-	exp_val_t val = {NULL_T};
-	
-	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
-
-	while (funcArgs) {
-		if(tmpArgs) {
-			calc_run_expr(&val, &tmpArgs->val);
-			tmpArgs = tmpArgs->next;
-		} else {
-			calc_run_expr(&val, &funcArgs->val);
-		}
-		zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
-		funcArgs = funcArgs->next;
-	}
-
-	syms = def->syms;
-	while(syms) {
-		if(syms->type != GLOBAL_T) {
-			syms = syms->next;
-			continue;
-		}
-		
-		_args = syms->args;
-		while(_args) {
-			exp_val_t *ptr = NULL;
-			
-			zend_hash_find(&tmpVars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
-			if(ptr) {
-				zend_hash_add(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
-			}
-			_args = _args->next;
-		}
-		
-		syms = syms->next;
-	}
-
-	calc_run_syms(ret, def->syms);
-	
-	vars.pDestructor = NULL;
-	
-	syms = def->syms;
-	while(syms) {
-		if(syms->type != GLOBAL_T) {
-			syms = syms->next;
-			continue;
-		}
-		
-		_args = syms->args;
-		while(_args) {
-			exp_val_t *ptr = NULL;
-			
-			zend_hash_find(&vars, _args->val.str, strlen(_args->val.str), (void**)&ptr);
-			if(ptr) {
-				if(_args->val.type != ARRAY_T) {
-					zend_hash_update(&tmpVars, _args->val.str, strlen(_args->val.str), ptr, sizeof(exp_val_t), NULL);
-				}
-				zend_hash_del(&vars, _args->val.str, strlen(_args->val.str));
-			}
-			_args = _args->next;
-		}
-		
-		syms = syms->next;
-	}
-	vars.pDestructor = (dtor_func_t)calc_free_vars;
-	zend_hash_destroy(&vars);
-
-	vars = tmpVars;
-}
-
 void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
+	exp_val_t *ptr = NULL, *tmp = NULL;
+	exp_val_t val = {NULL_T}, left = {NULL_T}, right = {NULL_T}, cond = {NULL_T};
+
+	call_args_t *tmpArgs = NULL, *args = NULL, *callArgs = NULL;
+	
+	unsigned argc = 0;
+	
 	memset(ret, 0, sizeof(exp_val_t));
 
 	switch (expr->type) {
@@ -727,7 +659,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			CALC_CONV(ret, expr, str);
 			break;
 		case VAR_T: {
-			exp_val_t *ptr = NULL;
 			zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
 			if (ptr) {
 				if(ptr->type < ARRAY_T) {
@@ -748,7 +679,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		case DIV_T:
 		case MOD_T:
 		case POW_T: {
-			exp_val_t left = {NULL_T}, right = {NULL_T};
 			calc_run_expr(&left, expr->left);
 			calc_run_expr(&right, expr->right);
 			switch (expr->type) {
@@ -777,7 +707,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		}
 		case ABS_T:
 		case MINUS_T: {
-			exp_val_t val = {NULL_T};
 			calc_run_expr(&val, expr->left);
 			if (expr->type == ABS_T) {
 				calc_abs(ret, &val);
@@ -788,14 +717,17 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case FUNC_T: {
-			call_args_t *tmpArgs = NULL;
-			call_args_t *args = NULL;
-			unsigned argc = 0;
-
 			if(expr->call.type == USER_F) {
 				func_def_f *def = NULL;
 				zend_hash_find(&funcs, expr->call.name, strlen(expr->call.name), (void**)&def);
 				if (def) {
+					tmpArgs = expr->call.args;
+					while(tmpArgs) {
+						argc++;
+					
+						tmpArgs = tmpArgs->next;
+					}
+
 					if (argc > def->argc || argc < def->minArgc) {
 						//printf("minArgc=%d, argc=%d, argc=%d\n", def->minArgc, argc, def->argc);
 						yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.", expr->call.name, def->argc, def->minArgc, argc);
@@ -804,7 +736,78 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					dprintf("call user function for %s\n", def->names);
 
 					linenostack[++linenostacktop].funcname = expr->call.name;
-					calc_func_run(ret, def, args);
+
+					HashTable tmpVars = vars;
+					func_args_t *funcArgs = def->args;
+					func_symbol_t *syms;
+					tmpArgs = expr->call.args;
+
+					zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
+
+					while (funcArgs) {
+						if(tmpArgs) {
+							calc_run_expr(&val, &tmpArgs->val);
+							tmpArgs = tmpArgs->next;
+						} else {
+							calc_run_expr(&val, &funcArgs->val);
+						}
+						zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
+						funcArgs = funcArgs->next;
+					}
+
+					syms = def->syms;
+					while(syms) {
+						if(syms->type != GLOBAL_T) {
+							syms = syms->next;
+							continue;
+						}
+	
+						tmpArgs = syms->args;
+						while(tmpArgs) {
+							ptr = NULL;
+		
+							zend_hash_find(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), (void**)&ptr);
+							if(ptr) {
+								zend_hash_add(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), ptr, sizeof(exp_val_t), NULL);
+							}
+							tmpArgs = tmpArgs->next;
+						}
+	
+						syms = syms->next;
+					}
+
+					calc_run_syms(ret, def->syms);
+
+					vars.pDestructor = NULL;
+
+					syms = def->syms;
+					while(syms) {
+						if(syms->type != GLOBAL_T) {
+							syms = syms->next;
+							continue;
+						}
+	
+						tmpArgs = syms->args;
+						while(tmpArgs) {
+							ptr = NULL;
+		
+							zend_hash_find(&vars, tmpArgs->val.str, strlen(tmpArgs->val.str), (void**)&ptr);
+							if(ptr) {
+								if(tmpArgs->val.type != ARRAY_T) {
+									zend_hash_update(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), ptr, sizeof(exp_val_t), NULL);
+								}
+								zend_hash_del(&vars, tmpArgs->val.str, strlen(tmpArgs->val.str));
+							}
+							tmpArgs = tmpArgs->next;
+						}
+	
+						syms = syms->next;
+					}
+					vars.pDestructor = (dtor_func_t)calc_free_vars;
+					zend_hash_destroy(&vars);
+
+					vars = tmpVars;
+
 					linenostacktop--;
 				} else {
 					yyerror("undefined user function for %s\n", expr->call.name);
@@ -824,7 +827,8 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					break;
 				}
 			} else {
-				call_args_t *args = NULL, *callArgs = expr->call.args;
+				args = NULL;
+				callArgs = expr->call.args;
 				while (callArgs) {
 					if (tmpArgs) {
 						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
@@ -849,6 +853,8 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					break;
 				}
 			}
+			
+			dprintf("call system function for %s\n", expr->call.name);
 
 			switch (expr->call.type) {
 				case SQRT_F:
@@ -910,7 +916,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 							break;
 
 						case VAR_T: {
-							exp_val_t *ptr = NULL;
+							ptr = NULL;
 
 							zend_hash_find(&vars, args->val.str, strlen(args->val.str), (void**)&ptr);
 	
@@ -925,8 +931,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 							break;
 						}
 						default: {
-							exp_val_t val = {NULL_T};
-	
 							calc_run_expr(&val, &args->val);
 
 							if(val.type == STR_T) {
@@ -946,6 +950,9 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					ret->type = DOUBLE_T;
 					ret->dval = microtime();
 					break;
+				case SRAND_F:
+					srand((unsigned int) microtime());
+					break;
 				default:
 					yyerror("undefined system function for %s\n", expr->call.name);
 					break;
@@ -962,8 +969,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		case LOGIC_LE_T:
 		case LOGIC_EQ_T:
 		case LOGIC_NE_T: {
-			exp_val_t left = {NULL_T}, right = {NULL_T};
-
 			calc_run_expr(&left, expr->left);
 			calc_run_expr(&right, expr->right);
 
@@ -996,8 +1001,6 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case IF_T: {
-			exp_val_t cond = {NULL_T};
-
 			calc_run_expr(&cond, expr->cond);
 			CALC_CONV((&cond), (&cond), dval);
 
@@ -1010,9 +1013,8 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case ARRAY_T: {
-			exp_val_t *ptr = NULL;
-			exp_val_t val = {NULL_T};
-			call_args_t *args = expr->call.args;
+			ptr = NULL;
+			args = expr->call.args;
 			zend_hash_find(&vars, expr->call.name, strlen(expr->call.name), (void**)&ptr);
 			if(!ptr) {
 				yyerror("(warning) variable %s not exists, cannot read array or string value.", expr->call.name);
@@ -1037,7 +1039,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 				ret->type = INT_T;
 				ret->ival = 0;
 
-				exp_val_t *tmp = ptr;
+				tmp = ptr;
 				while (args) {
 					calc_run_expr(&val, &args->val);
 					CALC_CONV((&val), (&val), ival);
@@ -1096,21 +1098,21 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 		switch (syms->type) {
 			case ECHO_STMT_T: {
 				call_args_t *args = syms->args;
+				exp_val_t val = {NULL_T};
 				while (args) {
 					switch (args->val.type) {
-					case STR_T:
-						printf("%s", args->val.str);
-						break;
-					case NULL_T:
-						printf("null");
-						break;
-					default: {
-						exp_val_t val = {NULL_T};
-						calc_run_expr(&val, &args->val);
-						calc_echo(&val);
-						calc_free_expr(&val);
-						break;
-					}
+						case STR_T:
+							printf("%s", args->val.str);
+							break;
+						case NULL_T:
+							printf("null");
+							break;
+						default: {
+							calc_run_expr(&val, &args->val);
+							calc_echo(&val);
+							calc_free_expr(&val);
+							break;
+						}
 					}
 					args = args->next;
 				}
@@ -1391,10 +1393,6 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 				calc_free_expr(&val);
 				break;
 			}
-			case SRAND_STMT_T: {
-				srand((unsigned int) microtime());
-				break;
-			}
 		}
 
 		nextStmt: syms = syms->next;
@@ -1509,14 +1507,15 @@ void calc_free_vars(exp_val_t *expr) {
 
 #ifdef DEBUG
 static void free_frees(char *s) {
-	dprintf("FREES: %s\n", s);
-	free(s);
+	dprintf("FREES: %p\n", s);
+	//free(s);
 }
 #else
 	#define free_frees free
 #endif
 
-#define YYPARSE() while(yyparse() && isSyntaxData) { \
+#define YYPARSE() frees.pDestructor = NULL; \
+	while((yret=yyparse()) && isSyntaxData) { \
 		frees.pDestructor = (dtor_func_t)free_frees; \
 		if(yywrap()) { \
 			break; \
@@ -1525,6 +1524,7 @@ static void free_frees(char *s) {
 			frees.pDestructor = NULL; \
 		} \
 	} \
+	frees.pDestructor = (dtor_func_t)free_frees; \
 	if(isSyntaxData) { \
 		memset(&expr, 0, sizeof(exp_val_t)); \
 		calc_run_syms(&expr, topSyms); \
@@ -1535,13 +1535,10 @@ static void free_frees(char *s) {
 			zend_hash_clean(&vars); \
 			zend_hash_clean(&funcs); \
 		} \
-	} else { \
-		frees.pDestructor = (dtor_func_t)free_frees; \
 	} \
-	while(!yywrap()) {} \
+	while(yret && !yywrap()) {} \
 	zend_hash_clean(&files); \
-	zend_hash_clean(&frees); \
-	frees.pDestructor = NULL
+	zend_hash_clean(&frees)
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
@@ -1564,7 +1561,7 @@ int main(int argc, char **argv) {
 		"    files...       from file input source code for multiple.\n" \
 		, argv[0])
 	if(argc > 1) {
-		int i;
+		int i,yret;
 		int isolate = 1;
 		exp_val_t expr;
 		for(i = 1; i<argc; i++) {
@@ -1646,5 +1643,37 @@ void yyerror(const char *s, ...) {
 	
 	fprintf(stderr, "===================================\n");
 	fprintf(stderr, "\x1b[0m");
+}
+
+int yywrap() {
+	dprintf("--------------------------\n");
+	dprintf("END INPUT: %s\n", curFileName);
+	dprintf("==========================\n");
+
+	if(includeDeep>0) {
+		zend_hash_del(&files, curFileName, strlen(curFileName));
+
+		includeDeep--;
+
+		if(EXPECTED(isSyntaxData)) {
+			free(curFileName);
+		}
+
+		fclose(yyin);
+		curFileName = tailWrapStack->filename;
+		yylineno = tailWrapStack->lineno;
+
+		wrap_stack_t *ptr = tailWrapStack;
+
+		tailWrapStack = tailWrapStack->prev;
+
+		free(ptr);
+
+		yypop_buffer_state();
+
+		return 0;
+	} else {
+		return 1;
+	}
 }
 

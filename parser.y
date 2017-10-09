@@ -23,7 +23,7 @@ char *curFileName = "-";
 /* declare tokens */
 %token EOL
 %token CONST_PI NUMBER CONST_RAND_MAX
-%token LIST CLEAR SRAND
+%token LIST CLEAR
 %token CALL FUNC
 %token VARIABLE STR
 %token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY
@@ -45,7 +45,7 @@ char *curFileName = "-";
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def));zend_hash_clean(&frees); zend_hash_clean(&frees); } }
+ | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
  | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
@@ -110,7 +110,7 @@ breakStmt: stmt
 stmtList: stmt
  | stmtList stmt { if(EXPECTED(isSyntaxData)) { APPEND($$.def.syms,$2.def.syms); } }
 ;
-stmt: ECHO_T echoArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STMT_T,args,$2.call.args); } }
+stmt: ECHO_T stmtExprArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STMT_T,args,$2.call.args); } }
  | RET stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,RET_STMT_T,expr,NULL);MEMDUP($$.def.syms->expr,&$2,exp_val_t); } }
  | VARIABLE '=' stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$3,exp_val_t); }  }
  | IF '(' stmtExpr ')' '{' stmtList '}' %prec IFX { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP($$.def.syms->cond,&$3,exp_val_t);$$.def.syms->lsyms=$6.def.syms;$$.def.syms->rsyms=NULL; } }
@@ -134,7 +134,6 @@ stmt: ECHO_T echoArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STMT_T,
  | VARIABLE arrayArgList DIVEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; } }
  | VARIABLE arrayArgList MODEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.def.syms->var,&$1,exp_val_t);MEMDUP($$.def.syms->val,&$4,exp_val_t);$$.def.syms->var->type=ARRAY_T;$$.def.syms->var->call.name=$1.str;$$.def.syms->var->call.args=$2.call.args; } }
  | callExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,FUNC_STMT_T,args,NULL);MEMDUP($$.def.syms->expr,&$1,exp_val_t); } }
- | SRAND '(' ')' ';' { if(EXPECTED(isSyntaxData)) { STMT($$,SRAND_STMT_T,args,NULL); } } // 空语句
  | ';' { if(EXPECTED(isSyntaxData)) { STMT($$,NULL_STMT_T,args,NULL); } } // 空语句
 ;
 varArgList: varArg
@@ -146,12 +145,6 @@ arrayArgList: arrayArg
  | arrayArgList arrayArg { if(EXPECTED(isSyntaxData)) { APPEND($$.call.args,$2.call.args); } }
 ;
 arrayArg: '[' stmtExpr ']' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$2); } }
-;
-echoArgList: echoArg
- | echoArgList ',' echoArg { if(EXPECTED(isSyntaxData)) { APPEND($$.call.args,$3.call.args); } }
-;
-echoArg: stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); } }
- | STR { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.call.args,$1); } }
 ;
 stmtExpr: VARIABLE
  | number
@@ -168,11 +161,11 @@ stmtExpr: VARIABLE
  | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { $$.type=ABS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL; } }
  | '(' stmtExpr ')'   { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
  | VARIABLE arrayArgList { if(EXPECTED(isSyntaxData)) { $$.type=ARRAY_T;$$.call.name=$1.str;$$.call.args=$2.call.args; } } // 用户自定义函数
- | CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call.args=NULL; } } // 系统函数
- | CALL '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call.args=$3.call.args; } } // 系统函数
  | callExpr
 ;
-callExpr: VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL;$$.call.rawArgs=0; } } // 用户自定义函数
+callExpr: CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call.args=NULL; } } // 系统函数
+ | CALL '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call.args=$3.call.args; } } // 系统函数
+ | VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=NULL;$$.call.rawArgs=0; } } // 用户自定义函数
  | VARIABLE '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.call.type=USER_F;$$.call.name=$1.str;$$.call.args=$3.call.args;$$.call.rawArgs=0; } } // 用户自定义函数
 ;
 stmtExprArgList: stmtExprArg
