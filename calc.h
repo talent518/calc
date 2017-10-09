@@ -96,6 +96,7 @@ struct _func_def_f {
 	char *names;
 	func_args_t *args;
 	func_symbol_t *syms;
+	HashTable frees;
 };
 
 struct _exp_val_t {
@@ -158,6 +159,7 @@ struct _func_symbol_t {
 };
 
 extern func_symbol_t *topSyms;
+extern HashTable topFrees;
 extern int yylineno;
 extern int yyleng;
 extern char *types[];

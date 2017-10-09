@@ -18,6 +18,8 @@ wrap_stack_t *curWrapStack = NULL;
 wrap_stack_t *tailWrapStack = NULL;
 unsigned int includeDeep = 0;
 char *curFileName = "-";
+
+int zend_hash_apply_append_frees(void*);
 %}
 
 /* declare tokens */
@@ -45,11 +47,11 @@ char *curFileName = "-";
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
- | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;calc_func_def(&($$.def)); zend_hash_clean(&frees); } }
- | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.def.syms); } else { topSyms = $2.def.syms; } zend_hash_clean(&frees); } }
+ | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=NULL;$$.def.frees = frees;calc_func_def(&($$.def)); zend_hash_init(&frees, 20, NULL); } }
+ | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=NULL;$$.def.syms=$7.def.syms;$$.def.frees = frees;calc_func_def(&($$.def)); zend_hash_init(&frees, 20, NULL); } }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=NULL;$$.def.frees = frees;calc_func_def(&($$.def)); zend_hash_init(&frees, 20, NULL); } }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $$.def.name = $3.str;$$.def.args=$5.def.args;$$.def.syms=$8.def.syms;$$.def.frees = frees;calc_func_def(&($$.def)); zend_hash_init(&frees, 20, NULL); } }
+ | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.def.syms);} else { topSyms = $2.def.syms; } zend_hash_apply(&frees, zend_hash_apply_append_frees); } }
  | calclist INCLUDE STR ';' {
 	FILE *fp = fopen($3.str, "r");
 	if(fp) {
@@ -179,4 +181,9 @@ number: NUMBER
 ;
 
 %%
+
+int zend_hash_apply_append_frees(void *ptr) {
+	zend_hash_next_index_insert(&topFrees, ptr, 0, NULL);
+	return ZEND_HASH_APPLY_REMOVE;
+}
 

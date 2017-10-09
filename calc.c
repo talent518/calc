@@ -4,6 +4,7 @@ HashTable vars;
 HashTable funcs;
 HashTable files;
 HashTable frees;
+HashTable topFrees;
 func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
 int exitCode = 0;
@@ -15,6 +16,8 @@ typedef struct _linenostack {
 
 static linenostack_t linenostack[1024]={{0,"TOP"}};
 static int linenostacktop = 0;
+
+#define free_frees free
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
@@ -527,115 +530,11 @@ void calc_free_args(call_args_t *args) {
 	}
 }
 
-void calc_free_syms(func_symbol_t *syms) {
-	func_symbol_t *tmpSyms;
-
-	while (syms) {
-		switch (syms->type) {
-			case ECHO_STMT_T: {
-				calc_free_args(syms->args);
-				break;
-			}
-			case RET_STMT_T: {
-				calc_free_expr(syms->expr);
-				free(syms->expr);
-				break;
-			}
-			case IF_STMT_T: {
-				calc_free_expr(syms->cond);
-				free(syms->cond);
-				calc_free_syms(syms->lsyms);
-				calc_free_syms(syms->rsyms);
-				break;
-			}
-			case WHILE_STMT_T: {
-				calc_free_expr(syms->cond);
-				free(syms->cond);
-				calc_free_syms(syms->lsyms);
-				break;
-			}
-			case DO_WHILE_STMT_T: {
-				calc_free_expr(syms->cond);
-				free(syms->cond);
-				calc_free_syms(syms->lsyms);
-				break;
-			}
-			case BREAK_STMT_T: {
-				// none EXPR
-				break;
-			}
-			case ARRAY_STMT_T: {
-				free(syms->args->val.str);
-				calc_free_args(syms->args->next);
-				free(syms->args);
-				break;
-			}
-			case GLOBAL_T: {
-				calc_free_args(syms->args);
-				break;
-			}
-			case INC_STMT_T: {
-				free(syms->args->val.str);
-				free(syms->args);
-				break;
-			}
-			case DEC_STMT_T: {
-				free(syms->args->val.str);
-				free(syms->args);
-				break;
-			}
-			case ASSIGN_STMT_T:
-			case ADDEQ_STMT_T:
-			case SUBEQ_STMT_T:
-			case MULEQ_STMT_T:
-			case DIVEQ_STMT_T:
-			case MODEQ_STMT_T: {
-				calc_free_expr(syms->val);
-				
-				switch (syms->var->type) {
-					case VAR_T: {
-						free(syms->args->val.str);
-						break;
-					}
-					case ARRAY_T: {
-						free(syms->var->call.name);
-						calc_free_args(syms->var->call.args);
-						break;
-					}
-				}
-				free(syms->var);
-				free(syms->val);
-				break;
-			}
-			case FUNC_STMT_T: {
-				calc_free_expr(syms->expr);
-				free(syms->expr);
-				break;
-			}
-		}
-
-nextStmt:
-		tmpSyms = syms;
-		syms = syms->next;
-		free(tmpSyms);
-	}
-}
-
 void calc_free_func(func_def_f *def) {
-	free(def->name);
 	free(def->names);
 
-	func_args_t *args = def->args, *tmpArgs;
-
-	while (args) {
-		tmpArgs = args;
-		calc_free_expr(&args->val);
-		args = args->next;
-		free(tmpArgs->name);
-		free(tmpArgs);
-	}
-
-	calc_free_syms(def->syms);
+	def->frees.pDestructor = (dtor_func_t)free_frees;
+	zend_hash_destroy(&def->frees);
 }
 
 void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
@@ -1409,62 +1308,6 @@ void calc_free_expr(exp_val_t *expr) {
 			free(expr->str);
 			break;
 		}
-		case ADD_T:
-		case SUB_T:
-		case MUL_T:
-		case DIV_T:
-		case MOD_T:
-		case POW_T: {
-			dprintf("--- FreeExpr: ADD_T/.../POW_T ---\n");
-			calc_free_expr(expr->left);
-			calc_free_expr(expr->right);
-
-			free(expr->left);
-			free(expr->right);
-			break;
-		}
-		case ABS_T:
-		case MINUS_T: {
-			dprintf("--- FreeExpr: ABS_T/MINUS_T ---\n");
-			calc_free_expr(expr->left);
-			
-			free(expr->left);
-			break;
-		}
-		case FUNC_T: {
-			dprintf("--- FreeExpr: FUNC_T ---\n");
-			calc_free_args(expr->call.args);
-			if(expr->call.type == USER_F) {
-				dprintf("--- FreeExpr: USER_F ---\n");
-				free(expr->call.name);
-			}
-			break;
-		}
-		case LOGIC_GT_T:
-		case LOGIC_LT_T:
-		case LOGIC_GE_T:
-		case LOGIC_LE_T:
-		case LOGIC_EQ_T:
-		case LOGIC_NE_T: {
-			dprintf("--- FreeExpr: LOGIC_??_T ---\n");
-			calc_free_expr(expr->left);
-			calc_free_expr(expr->right);
-			
-			free(expr->left);
-			free(expr->right);
-			break;
-		}
-		case IF_T: {
-			dprintf("--- FreeExpr: IF_T ---\n");
-			calc_free_expr(expr->cond);
-			calc_free_expr(expr->left);
-			calc_free_expr(expr->right);
-
-			free(expr->cond);
-			free(expr->left);
-			free(expr->right);
-			break;
-		}
 		case ARRAY_T: {
 			dprintf("--- FreeExpr: ARRAY_T ---\n");
 			calc_free_args(expr->call.args);
@@ -1505,15 +1348,6 @@ void calc_free_vars(exp_val_t *expr) {
 	}
 }
 
-#ifdef DEBUG
-static void free_frees(char *s) {
-	dprintf("FREES: %p\n", s);
-	//free(s);
-}
-#else
-	#define free_frees free
-#endif
-
 #define YYPARSE() frees.pDestructor = NULL; \
 	while((yret=yyparse()) && isSyntaxData) { \
 		frees.pDestructor = (dtor_func_t)free_frees; \
@@ -1524,12 +1358,11 @@ static void free_frees(char *s) {
 			frees.pDestructor = NULL; \
 		} \
 	} \
-	frees.pDestructor = (dtor_func_t)free_frees; \
 	if(isSyntaxData) { \
 		memset(&expr, 0, sizeof(exp_val_t)); \
 		calc_run_syms(&expr, topSyms); \
 		calc_free_expr(&expr); \
-		calc_free_syms(topSyms); \
+		zend_hash_clean(&topFrees); \
 		topSyms = NULL; \
 		if(isolate) { \
 			zend_hash_clean(&vars); \
@@ -1538,11 +1371,13 @@ static void free_frees(char *s) {
 	} \
 	while(yret && !yywrap()) {} \
 	zend_hash_clean(&files); \
+	frees.pDestructor = (dtor_func_t)free_frees; \
 	zend_hash_clean(&frees)
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&frees, 20, NULL);
+	zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
 	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
 
@@ -1616,6 +1451,7 @@ int main(int argc, char **argv) {
 	
 	yylex_destroy();
 
+	zend_hash_destroy(&topFrees);
 	zend_hash_destroy(&files);
 	zend_hash_destroy(&frees);
 	zend_hash_destroy(&vars);
