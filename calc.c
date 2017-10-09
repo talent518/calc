@@ -467,31 +467,23 @@ void calc_func_print(func_def_f *def) {
 	def->minArgc = 0;
 	unsigned errArgc = 0;
 	if (def->args) {
-		strcat(names, def->args->name);
-		if (def->args->val.type != NULL_T) {
-			strcat(names, "=");
-			calc_sprintf(names + strlen(names), &def->args->val);
-		}
-		func_args_t *args = def->args->next;
-		def->argc++;
-		if (def->args->val.type == NULL_T) {
-			def->minArgc++;
-		}
+		func_args_t *args = def->args;
 		while (args) {
-			strcat(names, ", ");
+			if(def->argc) {
+				strcat(names, ", ");
+			}
 			strcat(names, args->name);
-			if (args->val.type != NULL_T) {
+			if (args->val.type != VAR_T) {
 				strcat(names, "=");
 				calc_sprintf(names + strlen(names), &args->val);
 			}
-			if (def->argc == def->minArgc) {
-				if (args->val.type == NULL_T) {
-					def->minArgc++;
-				}
-			} else if (!errArgc && args->val.type == NULL_T) {
+			if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
 				errArgc = def->argc;
 			}
 			def->argc++;
+			if (args->val.type == VAR_T) {
+				def->minArgc++;
+			}
 			args = args->next;
 		}
 	}

@@ -3,14 +3,12 @@
 
 #include "calc.h"
 
-#define ASSIGNMENT_STATEMENT(var,expr) zend_hash_update(&vars, var->str, strlen(var->str), expr, sizeof(exp_val_t), NULL);
-
 #define MEMALLOC(dst, type) dst=(type*)malloc(sizeof(type));zend_hash_next_index_insert(&frees, dst, 0, NULL)
 #define MEMDUP(dst,src,type) MEMALLOC(dst, type);memcpy(dst,src,sizeof(type))
-#define CALL_ARGS(args,v) args=malloc(sizeof(call_args_t));args->val=v;args->tail=args;args->next=NULL;zend_hash_next_index_insert(&frees, args, 0, NULL)
-#define FUNC_ARGS(args,v) args=malloc(sizeof(func_args_t));args->val=v;args->tail=args;args->next=NULL;zend_hash_next_index_insert(&frees, args, 0, NULL)
+#define CALL_ARGS(args,v) MEMALLOC(args, call_args_t);args->val=v;args->tail=args;args->next=NULL
+#define FUNC_ARGS(args,v) MEMALLOC(args, func_args_t);args->val=v;args->tail=args;args->next=NULL
 #define APPEND(args,val) args->tail->next=val;args->tail=val
-#define STMT(o,t,k,v) o.syms=malloc(sizeof(func_symbol_t));o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->tail=o.syms;o.syms->next=NULL;zend_hash_next_index_insert(&frees, o.syms, 0, NULL)
+#define STMT(o,t,k,v) MEMALLOC(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->tail=o.syms;o.syms->next=NULL;
 
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
@@ -93,9 +91,9 @@ calclist:
 funcArgList:  funcArg
  | funcArgList ',' funcArg { if(EXPECTED(isSyntaxData)) { APPEND($$.defArgs,$3.defArgs); } }
 ;
-funcArg: VARIABLE '=' number { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;FUNC_ARGS($$.defArgs,$3);$$.defArgs->name = $1.str; } }
- | VARIABLE '=' STR { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;FUNC_ARGS($$.defArgs,$3);$$.defArgs->name = $1.str; } }
- | VARIABLE { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_DEF_T;$1.type=NULL_T;FUNC_ARGS($$.defArgs,$1);$$.defArgs->name = $1.str; } }
+funcArg: VARIABLE '=' number { if(EXPECTED(isSyntaxData)) { FUNC_ARGS($$.defArgs,$3);$$.defArgs->name = $1.str; } }
+ | VARIABLE '=' STR { if(EXPECTED(isSyntaxData)) { FUNC_ARGS($$.defArgs,$3);$$.defArgs->name = $1.str; } }
+ | VARIABLE { if(EXPECTED(isSyntaxData)) { FUNC_ARGS($$.defArgs,$1);$$.defArgs->name = $1.str; } }
 ;
 /************************ 函数语句语法 ************************/
 funcStmtList: funcStmt
@@ -142,12 +140,12 @@ stmt: ECHO_T stmtExprArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STM
 varArgList: varArg
  | varArgList ',' varArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$3.callArgs); } }
 ;
-varArg: VARIABLE { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.callArgs,$1); } }
+varArg: VARIABLE { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,$1); } }
 ;
 arrayArgList: arrayArg
  | arrayArgList arrayArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$2.callArgs); } }
 ;
-arrayArg: '[' stmtExpr ']' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.callArgs,$2); } }
+arrayArg: '[' stmtExpr ']' { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,$2); } }
 ;
 stmtExpr: VARIABLE
  | number
@@ -174,7 +172,7 @@ callExpr: CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.callArgs=NULL;$$.
 stmtExprArgList: stmtExprArg
  | stmtExprArgList ',' stmtExprArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$3.callArgs); } }
 ;
-stmtExprArg: stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_ARGS($$.callArgs,$1); } }
+stmtExprArg: stmtExpr { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,$1); } }
 ;
 number: NUMBER
  | CONST_RAND_MAX

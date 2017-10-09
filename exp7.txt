@@ -1,0 +1,4 @@
+func test(a,b,c=1,d=0) {
+	list;
+}
+test(3,2);

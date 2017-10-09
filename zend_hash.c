@@ -90,7 +90,7 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 	} else { \
 		if ((p)->pData == &(p)->pDataPtr) { \
 			(p)->pData = (void *) malloc(nDataSize); \
-			(p)->pDataPtr=NULL; \
+			(p)->pDataPtr = NULL; \
 		} else { \
 			(p)->pData = (void *) realloc((p)->pData, nDataSize); \
 			/* (p)->pDataPtr is already NULL so no need to initialize it */ \
@@ -102,14 +102,14 @@ ulong zend_hash_func(const char *arKey, uint nKeyLength)
 	(p)->nDataSize = nDataSize; \
 	if (nDataSize <= 0) { \
 		(p)->pData = _pData; \
-		(p)->pDataPtr=NULL; \
+		(p)->pDataPtr = NULL; \
 	} else if (nDataSize <= sizeof(void*)) { \
 		memcpy(&(p)->pDataPtr, (_pData), nDataSize); \
 		(p)->pData = &(p)->pDataPtr; \
 	} else { \
 		(p)->pData = (void *) malloc(nDataSize);	 \
 		memcpy((p)->pData, (_pData), nDataSize); \
-		(p)->pDataPtr=NULL; \
+		(p)->pDataPtr = NULL; \
 	}
 
 #define CHECK_INIT(ht) do {															\
