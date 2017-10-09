@@ -152,24 +152,24 @@ arrayArg: '[' stmtExpr ']' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CA
 stmtExpr: VARIABLE
  | number
  | STR
- | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { $$.type=MINUS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL; } }
- | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=ADD_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=SUB_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=MUL_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=DIV_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '%' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=MOD_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '^' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=POW_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=$2.type;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t); } }
- | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=IF_T;MEMDUP($$.cond,&$1,exp_val_t);MEMDUP($$.left,&$3,exp_val_t);MEMDUP($$.right,&$5,exp_val_t); } }
- | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { $$.type=ABS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL; } }
- | '(' stmtExpr ')'   { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
- | VARIABLE arrayArgList { if(EXPECTED(isSyntaxData)) { $$.type=ARRAY_T;$$.callName=$1.str;$$.callArgs=$2.callArgs; } } // 用户自定义函数
+ | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { $$.type=MINUS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL;$$.run = calc_run_minus; } }
+ | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=ADD_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_add; } }
+ | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=SUB_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_sub; } }
+ | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=MUL_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_mul; } }
+ | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=DIV_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_div; } }
+ | stmtExpr '%' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=MOD_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_mod; } }
+ | stmtExpr '^' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=POW_T;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = calc_run_pow; } }
+ | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=$2.type;MEMDUP($$.left,&$1,exp_val_t);MEMDUP($$.right,&$3,exp_val_t);$$.run = $2.run; } }
+ | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=IF_T;MEMDUP($$.cond,&$1,exp_val_t);MEMDUP($$.left,&$3,exp_val_t);MEMDUP($$.right,&$5,exp_val_t);$$.run = calc_run_iif; } }
+ | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { $$.type=ABS_T;MEMDUP($$.left,&$2,exp_val_t);$$.right=NULL;$$.run = calc_run_abs; } }
+ | '(' stmtExpr ')' { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
+ | VARIABLE arrayArgList { if(EXPECTED(isSyntaxData)) { $$.type=ARRAY_T;$$.callName=$1.str;$$.callArgs=$2.callArgs;$$.run = calc_run_array; } } // 用户自定义函数
  | callExpr
 ;
-callExpr: CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.callArgs=NULL; } } // 系统函数
- | CALL '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.callArgs=$3.callArgs; } } // 系统函数
- | VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.callType=USER_F;$$.callName=$1.str;$$.callArgs=NULL;$$.callRawArgs=0; } } // 用户自定义函数
- | VARIABLE '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.callType=USER_F;$$.callName=$1.str;$$.callArgs=$3.callArgs;$$.callRawArgs=0; } } // 用户自定义函数
+callExpr: CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.callArgs=NULL;$$.run = $1.run; } } // 系统函数
+ | CALL '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.callArgs=$3.callArgs;$$.run = $1.run; } } // 系统函数
+ | VARIABLE '(' ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.callType=USER_F;$$.callName=$1.str;$$.callArgs=NULL;$$.callRawArgs=0;$$.run = calc_run_func; } } // 用户自定义函数
+ | VARIABLE '(' stmtExprArgList ')' { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_T;$$.callType=USER_F;$$.callName=$1.str;$$.callArgs=$3.callArgs;$$.callRawArgs=0;$$.run = calc_run_func; } } // 用户自定义函数
 ;
 stmtExprArgList: stmtExprArg
  | stmtExprArgList ',' stmtExprArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$3.callArgs); } }
@@ -178,7 +178,7 @@ stmtExprArg: stmtExpr { if(EXPECTED(isSyntaxData)) { $$.type=FUNC_CALL_T;CALL_AR
 ;
 number: NUMBER
  | CONST_RAND_MAX
- | CONST_PI { if(EXPECTED(isSyntaxData)) {$$.type=DOUBLE_T;$$.dval=atof("3.141592653589793238462643383279502884197169"); } } // PI
+ | CONST_PI { if(EXPECTED(isSyntaxData)) {$$.type=DOUBLE_T;$$.dval=atof("3.141592653589793238462643383279502884197169");$$.run = calc_run_copy; } } // PI
 ;
 
 %%

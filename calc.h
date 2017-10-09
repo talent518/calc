@@ -80,6 +80,8 @@ typedef struct _func_symbol_t func_symbol_t;
 typedef struct _exp_val_t exp_val_t;
 typedef struct _func_def_f func_def_f;
 
+typedef void (*expr_run_func_t)(exp_val_t *ret, exp_val_t *expr);
+
 struct _func_def_f {
 	char *name;
 	unsigned char argc;
@@ -122,6 +124,7 @@ struct _exp_val_t {
 			call_args_t *arrayArgs;
 		};
 	};
+	expr_run_func_t run;
 };
 
 struct _call_args_t {
@@ -183,12 +186,52 @@ void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
 void calc_free_syms(func_symbol_t *syms);
 void calc_free_func(func_def_f *def);
-void calc_run_expr(exp_val_t *ret, exp_val_t *expr);
+void calc_run_copy(exp_val_t *ret, exp_val_t *expr); // 复制数值常量
+void calc_run_strdup(exp_val_t *ret, exp_val_t *expr); // 复制字符串常量
+void calc_run_variable(exp_val_t *ret, exp_val_t *expr); // 读取变量
+void calc_run_add(exp_val_t *ret, exp_val_t *expr); // 加法运算
+void calc_run_sub(exp_val_t *ret, exp_val_t *expr); // 减法运算
+void calc_run_mul(exp_val_t *ret, exp_val_t *expr); // 乘法运算
+void calc_run_div(exp_val_t *ret, exp_val_t *expr); // 除法运算
+void calc_run_mod(exp_val_t *ret, exp_val_t *expr); // 求余运算
+void calc_run_pow(exp_val_t *ret, exp_val_t *expr); // 乘方运算
+void calc_run_abs(exp_val_t *ret, exp_val_t *expr); // 绝对值运算
+void calc_run_minus(exp_val_t *ret, exp_val_t *expr); // 相反数(负)运算
+void calc_run_iif(exp_val_t *ret, exp_val_t *expr); // ?:运算
+void calc_run_gt(exp_val_t *ret, exp_val_t *expr); // >运算
+void calc_run_lt(exp_val_t *ret, exp_val_t *expr); // <运算
+void calc_run_ge(exp_val_t *ret, exp_val_t *expr); // >=运算
+void calc_run_le(exp_val_t *ret, exp_val_t *expr); // <=运算
+void calc_run_eq(exp_val_t *ret, exp_val_t *expr); // ==运算
+void calc_run_ne(exp_val_t *ret, exp_val_t *expr); // !=运算
+void calc_run_array(exp_val_t *ret, exp_val_t *expr); // 读取数组元素值
+void calc_run_func(exp_val_t *ret, exp_val_t *expr); // 执行用户函数
+void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr);
+void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr);
 void calc_free_expr(exp_val_t *expr);
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
-
 void calc_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
+
+#define calc_run_expr(ret, expr) (expr)->run((ret), (expr)); \
+	if((ret)->type == STR_T) { \
+		(ret)->run = calc_run_strdup; \
+	} else { \
+		(ret)->run = calc_run_copy; \
+	}
 
 void str2val(exp_val_t *val, char *str);
 

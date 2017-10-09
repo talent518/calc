@@ -240,8 +240,10 @@ function assign2() {
 }
 
 func assign3() {
-	echo assign2();
+	assign2();
 }
 
 srand();
 assign3();
+
+list;
