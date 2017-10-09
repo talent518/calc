@@ -13,7 +13,7 @@ all: ./tools/bin/bison ./tools/bin/flex calc
 
 test: calc
 	@echo $@
-	@./calc exp.txt exp2.txt exp3.txt exp4.txt
+	@./calc exp.txt exp2.txt exp3.txt exp4.txt exp5.txt exp6.txt exp7.txt
 
 calc: parser.o scanner.o zend_hash.o calc.o
 	@echo $@
