@@ -1446,7 +1446,6 @@ int main(int argc, char **argv) {
 			}
 		}
 	} else {
-		printf("sizeof: %ld\n", sizeof(exp_val_t));
 		USAGE();
 	}
 	

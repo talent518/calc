@@ -79,15 +79,6 @@ typedef struct _func_args_t func_args_t;
 typedef struct _func_symbol_t func_symbol_t;
 typedef struct _exp_val_t exp_val_t;
 typedef struct _func_def_f func_def_f;
-typedef struct _func_call_f func_call_f;
-
-struct _func_call_f {
-	call_enum_f type;
-	unsigned char argc;
-	char rawArgs;
-	char *name;
-	call_args_t *args;
-};
 
 struct _func_def_f {
 	char *name;
@@ -107,8 +98,8 @@ struct _exp_val_t {
 		float fval;
 		double dval;
 		struct {
-			char *str;
 			unsigned int strlen;
+			char *str;
 		};
 		struct {
 			call_enum_f callType;
