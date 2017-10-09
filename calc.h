@@ -83,16 +83,16 @@ typedef struct _func_call_f func_call_f;
 
 struct _func_call_f {
 	call_enum_f type;
-	char *name;
-	unsigned argc;
+	unsigned char argc;
 	char rawArgs;
+	char *name;
 	call_args_t *args;
 };
 
 struct _func_def_f {
 	char *name;
-	unsigned argc;
-	unsigned minArgc;
+	unsigned char argc;
+	unsigned char minArgc;
 	char *names;
 	func_args_t *args;
 	func_symbol_t *syms;
@@ -110,8 +110,16 @@ struct _exp_val_t {
 			char *str;
 			unsigned int strlen;
 		};
-		func_call_f call;
-		func_def_f def;
+		struct {
+			call_enum_f callType;
+			unsigned char callArgc;
+			char callRawArgs;
+			char *callName;
+			call_args_t *callArgs;
+		};
+		func_def_f *def;
+		func_args_t *defArgs;
+		func_symbol_t *syms;
 		struct {
 			struct _exp_val_t *cond;
 			struct _exp_val_t *left;

@@ -18,7 +18,7 @@ test: calc
 calc: parser.o scanner.o zend_hash.o calc.o
 	@echo $@
 	@$(CC) $(CC_FLAGS) -o $@ $? $(CL_FLAGS)
-	@sh -c "echo version `./calc -v`"
+	@sh -c "echo version '`./calc -v`'"
 
 parser.c: ./tools/bin/bison
 	@echo parser.y

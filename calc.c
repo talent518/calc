@@ -514,7 +514,7 @@ void calc_func_def(func_def_f *def) {
 	calc_func_print(def);
 	dprintf("\n");
 
-	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, sizeof(func_def_f), NULL) == FAILURE) {
+	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, 0, NULL) == FAILURE) {
 		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
 	}
 }
@@ -616,11 +616,11 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case FUNC_T: {
-			if(expr->call.type == USER_F) {
+			if(expr->callType == USER_F) {
 				func_def_f *def = NULL;
-				zend_hash_find(&funcs, expr->call.name, strlen(expr->call.name), (void**)&def);
+				zend_hash_find(&funcs, expr->callName, strlen(expr->callName), (void**)&def);
 				if (def) {
-					tmpArgs = expr->call.args;
+					tmpArgs = expr->callArgs;
 					while(tmpArgs) {
 						argc++;
 					
@@ -629,17 +629,17 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 
 					if (argc > def->argc || argc < def->minArgc) {
 						//printf("minArgc=%d, argc=%d, argc=%d\n", def->minArgc, argc, def->argc);
-						yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.", expr->call.name, def->argc, def->minArgc, argc);
+						yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.", expr->callName, def->argc, def->minArgc, argc);
 					}
 
 					dprintf("call user function for %s\n", def->names);
 
-					linenostack[++linenostacktop].funcname = expr->call.name;
+					linenostack[++linenostacktop].funcname = expr->callName;
 
 					HashTable tmpVars = vars;
 					func_args_t *funcArgs = def->args;
 					func_symbol_t *syms;
-					tmpArgs = expr->call.args;
+					tmpArgs = expr->callArgs;
 
 					zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 
@@ -709,25 +709,25 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 
 					linenostacktop--;
 				} else {
-					yyerror("undefined user function for %s\n", expr->call.name);
+					yyerror("undefined user function for %s\n", expr->callName);
 				}
 				break;
-			} else if(expr->call.rawArgs) {
-				args = expr->call.args;
-				tmpArgs = expr->call.args;
+			} else if(expr->callRawArgs) {
+				args = expr->callArgs;
+				tmpArgs = expr->callArgs;
 				while(tmpArgs) {
 					argc++;
 					
 					tmpArgs = tmpArgs->next;
 				}
 				
-				if (expr->call.argc != argc) {
-					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->call.name, expr->call.argc, argc);
+				if (expr->callArgc != argc) {
+					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
 					break;
 				}
 			} else {
 				args = NULL;
-				callArgs = expr->call.args;
+				callArgs = expr->callArgs;
 				while (callArgs) {
 					if (tmpArgs) {
 						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
@@ -746,16 +746,16 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					argc++;
 				}
 				
-				if (expr->call.argc != argc) {
-					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->call.name, expr->call.argc, argc);
+				if (expr->callArgc != argc) {
+					yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
 					calc_free_args(args);
 					break;
 				}
 			}
 			
-			dprintf("call system function for %s\n", expr->call.name);
+			dprintf("call system function for %s\n", expr->callName);
 
-			switch (expr->call.type) {
+			switch (expr->callType) {
 				case SQRT_F:
 					calc_sqrt(ret, &(args->val)); // 开方
 					break;
@@ -772,7 +772,7 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 				case RAD_F:
 					CALC_CONV(&args->val, &args->val, dval);
 					ret->type = DOUBLE_T;
-					switch (expr->call.type) {
+					switch (expr->callType) {
 					case SIN_F:
 						ret->dval = sin(args->val.dval); // 正弦
 						break;
@@ -853,11 +853,11 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 					srand((unsigned int) microtime());
 					break;
 				default:
-					yyerror("undefined system function for %s\n", expr->call.name);
+					yyerror("undefined system function for %s\n", expr->callName);
 					break;
 			}
 
-			if(args != expr->call.args) {
+			if(args != expr->callArgs) {
 				calc_free_args(args);
 			}
 			break;
@@ -913,27 +913,27 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 		}
 		case ARRAY_T: {
 			ptr = NULL;
-			args = expr->call.args;
-			zend_hash_find(&vars, expr->call.name, strlen(expr->call.name), (void**)&ptr);
+			args = expr->callArgs;
+			zend_hash_find(&vars, expr->callName, strlen(expr->callName), (void**)&ptr);
 			if(!ptr) {
-				yyerror("(warning) variable %s not exists, cannot read array or string value.", expr->call.name);
+				yyerror("(warning) variable %s not exists, cannot read array or string value.", expr->callName);
 			} else if (ptr->type == STR_T) {
 				str_array_access:
 				if(args->next) {
-					yyerror("An string of %s dimension bounds.", expr->call.name);
+					yyerror("An string of %s dimension bounds.", expr->callName);
 					break;
 				}
 				calc_run_expr(&val, &args->val);
 				CALC_CONV((&val), (&val), ival);
 				if(val.ival<0 || val.ival>=ptr->strlen) {
-					yyerror("An string of %s index out of bounds", expr->call.name);
+					yyerror("An string of %s index out of bounds", expr->callName);
 					break;
 				}
 				ret->type = STR_T;
 				ret->str = strndup(ptr->str+val.ival, 1);
 				ret->strlen = 1;
 			} else if (ptr->type != ARRAY_T) {
-				yyerror("(warning) variable %s not is a array, type is %s", expr->call.name, types[ptr->type - NULL_T]);
+				yyerror("(warning) variable %s not is a array, type is %s", expr->callName, types[ptr->type - NULL_T]);
 			} else {
 				ret->type = INT_T;
 				ret->ival = 0;
@@ -955,21 +955,21 @@ void calc_run_expr(exp_val_t *ret, exp_val_t *expr) {
 							goto str_array_access;
 						} else if (tmp->type != ARRAY_T) {
 							if (args->next) {
-								yyerror("An array of %s dimension bounds", expr->call.name);
+								yyerror("An array of %s dimension bounds", expr->callName);
 							} else {
 								calc_run_expr(ret, tmp);
 							}
 							return;
 						}
 					} else {
-						yyerror("An array of %s index out of bounds", expr->call.name);
+						yyerror("An array of %s index out of bounds", expr->callName);
 						return;
 					}
 
 					args = args->next;
 				}
 
-				yyerror("Array %s dimension deficiency", expr->call.name);
+				yyerror("Array %s dimension deficiency", expr->callName);
 			}
 			break;
 		}
@@ -1201,11 +1201,11 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 					}
 					case ARRAY_T: {
 						exp_val_t *ptr = NULL;
-						zend_hash_find(&vars, syms->var->call.name, strlen(syms->var->call.name), (void**)&ptr);
+						zend_hash_find(&vars, syms->var->callName, strlen(syms->var->callName), (void**)&ptr);
 						if (ptr->type != ARRAY_T) {
-							yyerror("(warning) variable %s not is a array, type is %s", syms->var->call.name, types[ptr->type - NULL_T]);
+							yyerror("(warning) variable %s not is a array, type is %s", syms->var->callName, types[ptr->type - NULL_T]);
 						} else {
-							call_args_t *args = syms->var->call.args;
+							call_args_t *args = syms->var->callArgs;
 
 							exp_val_t *tmp = ptr, argsVal = {NULL_T};
 							while (args) {
@@ -1220,7 +1220,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 									tmp = &tmp->array[argsVal.ival];
 									if (tmp->type != ARRAY_T) {
 										if (args->next) {
-											yyerror("An array of %s dimension bounds", syms->var->call.name);
+											yyerror("An array of %s dimension bounds", syms->var->callName);
 										} else {
 											if(tmp->type == NULL_T) {
 												switch(syms->type) {
@@ -1272,7 +1272,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 										goto nextStmt;
 									}
 								} else {
-									yyerror("An array of %s index out of bounds", syms->var->call.name);
+									yyerror("An array of %s index out of bounds", syms->var->callName);
 									tmp = NULL;
 									goto nextStmt;
 								}
@@ -1280,7 +1280,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 								args = args->next;
 							}
 
-							yyerror("Array %s dimension deficiency", syms->var->call.name);
+							yyerror("Array %s dimension deficiency", syms->var->callName);
 						}
 					}
 				}
@@ -1310,8 +1310,8 @@ void calc_free_expr(exp_val_t *expr) {
 		}
 		case ARRAY_T: {
 			dprintf("--- FreeExpr: ARRAY_T ---\n");
-			calc_free_args(expr->call.args);
-			free(expr->call.name);
+			calc_free_args(expr->callArgs);
+			free(expr->callName);
 			break;
 		}
 	}
@@ -1446,6 +1446,7 @@ int main(int argc, char **argv) {
 			}
 		}
 	} else {
+		printf("sizeof: %ld\n", sizeof(exp_val_t));
 		USAGE();
 	}
 	
