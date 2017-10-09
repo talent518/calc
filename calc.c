@@ -411,7 +411,7 @@ void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 
 void calc_echo(exp_val_t *src) {
 	switch (src->type) {
-		CALC_ECHO_DEF(src, NULL_T, ival, "(null)");
+		CALC_ECHO_DEF(src, NULL_T, str, "%s");
 		CALC_ECHO_DEF(src, INT_T, ival, "%d");
 		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
 		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
