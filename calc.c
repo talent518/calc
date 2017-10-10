@@ -1761,10 +1761,14 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 }
 
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
+	register status_enum_t status;
 	while (syms) {
 		linenostack[linenostacktop].lineno = syms->lineno;
 		
-		syms->run(ret, syms);
+		status = syms->run(ret, syms);
+		if(status != NONE_STATUS) {
+			return status;
+		}
 
 		syms = syms->next;
 	}
