@@ -53,8 +53,8 @@ typedef enum _symbol_enum_t {
 	RET_STMT_T, // ret
 	ASSIGN_STMT_T, // var = expr
 	IF_STMT_T, // if(expr) { stmtlist } else { stmtlist }
-	WHILE_STMT_T, // while(expr) { stmtlist }
-	DO_WHILE_STMT_T, // do { stmtlist } while(expr)
+	WHILE_STMT_T, // while(expr) { breakStmtlist }
+	DO_WHILE_STMT_T, // do { breakStmtlist } while(expr)
 	BREAK_STMT_T, // break;
 	LIST_STMT_T, // list;
 	CLEAR_STMT_T, // clear;
@@ -67,7 +67,10 @@ typedef enum _symbol_enum_t {
 	DIVEQ_STMT_T, // var /= val
 	MODEQ_STMT_T, // var %= val
 	FUNC_STMT_T, // demo(); demo(1,2,3);
-	FOR_STMT_T, // for(;;) { stmtList }
+	FOR_STMT_T, // for(;;) { breakStmtlist }
+	SWITCH_STMT_T, // switch(expr) { switchStmtList }
+	CASE_STMT_T, // case number: / case str:
+	DEFAULT_STMT_T, // default:
 	NULL_STMT_T
 } symbol_enum_t;
 
@@ -191,6 +194,7 @@ void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
 void calc_free_syms(func_symbol_t *syms);
 void calc_free_func(func_def_f *def);
+
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr); // 复制数值常量
 void calc_run_strdup(exp_val_t *ret, exp_val_t *expr); // 复制字符串常量
 void calc_run_variable(exp_val_t *ret, exp_val_t *expr); // 读取变量
@@ -226,6 +230,7 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr);
+status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_ret(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_if(exp_val_t *ret, func_symbol_t *syms);
@@ -247,8 +252,10 @@ status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms);
+
+void calc_conv_str(exp_val_t *dst, exp_val_t *src);
 void calc_free_expr(exp_val_t *expr);
-status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 void calc_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
 

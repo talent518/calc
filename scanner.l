@@ -170,6 +170,9 @@ inline void unescape(char *p) {
 "do"                                           { return DO; }
 "for"                                          { return FOR; }
 "break"                                        { return BREAK; }
+"switch"                                       { return SWITCH; }
+"case"                                         { return CASE; }
+"default"                                      { return DEFAULT; }
 "include"                                      { return INCLUDE; }
 "TOP"                                          { /* 忽略TOP关键字 */ }
 "int"                                          { /* 忽略int关键字 */ }

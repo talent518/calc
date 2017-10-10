@@ -98,6 +98,10 @@ char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 		} \
 	} while(0)
 
+void calc_conv_str(exp_val_t *dst, exp_val_t *src) {
+	CALC_CONV(dst, src, str);
+}
+
 void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
 	switch(str[n-1]) {
@@ -1426,7 +1430,7 @@ status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
 	while (cond.dval) {
 		status = calc_run_syms(ret, syms->lsyms);
 		if (status != NONE_STATUS) {
-			return status == BREAK_STATUS ? NONE_STATUS : status;
+			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 
 		calc_run_expr(&cond, syms->cond);
@@ -1443,7 +1447,7 @@ status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
 	do {
 		status = calc_run_syms(ret, syms->lsyms);
 		if (status != NONE_STATUS) {
-			return status == BREAK_STATUS ? NONE_STATUS : status;
+			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 
 		calc_run_expr(&cond, syms->cond);
@@ -1772,7 +1776,7 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 	while (cond.dval) {
 		status = calc_run_syms(ret, syms->forSyms);
 		if (status != NONE_STATUS) {
-			return status == BREAK_STATUS ? NONE_STATUS : status;
+			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 		
 		calc_run_syms(ret, syms->rsyms);
@@ -1781,6 +1785,35 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 		CALC_CONV((&cond), (&cond), dval);
 	}
 	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t cond = {NULL_T};
+	register status_enum_t status;
+	
+	calc_run_expr(&cond, syms->cond);
+	CALC_CONV((&cond), (&cond), str);
+	
+	if(cond.type != STR_T) {
+		return NONE_STATUS;
+	}
+
+	syms = syms->lsyms;
+	while (syms) {
+		linenostack[linenostacktop].lineno = syms->lineno;
+		
+		if(syms->type == DEFAULT_STMT_T || (syms->type == CASE_STMT_T && !strcmp(cond.str, syms->cond->str))) {
+			calc_free_expr(&cond);
+			
+			return calc_run_syms(ret, syms->next) == RET_STATUS ? RET_STATUS : NONE_STATUS;
+		}
+		
+		syms = syms->next;
+	}
+	
+	calc_free_expr(&cond);
+
 	return NONE_STATUS;
 }
 
