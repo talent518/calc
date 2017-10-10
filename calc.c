@@ -1541,11 +1541,6 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 			free(ptr->str);
 		}
 		memcpy(ptr, &val, sizeof(exp_val_t));
-		if(ptr->type == STR_T) {
-			ptr->run = calc_run_strdup;
-		} else {
-			ptr->run = calc_run_copy;
-		}
 	} else {
 		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
 	}
@@ -1679,14 +1674,10 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 									tmp->type = INT_T;
 									tmp->ival = 0;
 									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
 									break;
 								default:
 									memcpy(tmp, &val, sizeof(exp_val_t));
-									if(tmp->type == STR_T) {
-										tmp->run = calc_run_strdup;
-									} else {
-										tmp->run = calc_run_copy;
-									}
 									break;
 							}
 						} else {
@@ -1721,11 +1712,6 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 										free(tmp->str);
 									}
 									memcpy(tmp, &val, sizeof(exp_val_t));
-									if(tmp->type == STR_T) {
-										tmp->run = calc_run_strdup;
-									} else {
-										tmp->run = calc_run_copy;
-									}
 									break;
 							}
 						}

@@ -107,7 +107,6 @@ struct _exp_val_t {
 		struct {
 			call_enum_f callType;
 			unsigned char callArgc;
-			char callRawArgs;
 			char *callName;
 			call_args_t *callArgs;
 		};
