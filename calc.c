@@ -1426,7 +1426,7 @@ status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
 	while (cond.dval) {
 		status = calc_run_syms(ret, syms->lsyms);
 		if (status != NONE_STATUS) {
-			return status;
+			return status == BREAK_STATUS ? NONE_STATUS : status;
 		}
 
 		calc_run_expr(&cond, syms->cond);
@@ -1443,7 +1443,7 @@ status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
 	do {
 		status = calc_run_syms(ret, syms->lsyms);
 		if (status != NONE_STATUS) {
-			return status;
+			return status == BREAK_STATUS ? NONE_STATUS : status;
 		}
 
 		calc_run_expr(&cond, syms->cond);
