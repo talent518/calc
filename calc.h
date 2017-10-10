@@ -287,7 +287,7 @@ typedef struct _linenostack {
 	func_symbol_t *syms;
 } linenostack_t;
 
-extern linenostack_t linenostack;
+extern linenostack_t linenostack[];
 extern int linenostacktop;
 
 void seed_rand();
