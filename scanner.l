@@ -168,6 +168,7 @@ inline void unescape(char *p) {
 "else"                                         { return ELSE; }
 "while"                                        { return WHILE; }
 "do"                                           { return DO; }
+"for"                                          { return FOR; }
 "break"                                        { return BREAK; }
 "include"                                      { return INCLUDE; }
 "TOP"                                          { /* 忽略TOP关键字 */ }

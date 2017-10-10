@@ -1760,6 +1760,30 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 	return NONE_STATUS;
 }
 
+status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t cond = {NULL_T};
+
+	calc_run_syms(ret, syms->lsyms);
+	
+	calc_run_expr(&cond, syms->cond);
+	CALC_CONV((&cond), (&cond), dval);
+
+	status_enum_t status;
+	while (cond.dval) {
+		status = calc_run_syms(ret, syms->forSyms);
+		if (status != NONE_STATUS) {
+			return status == BREAK_STATUS ? NONE_STATUS : status;
+		}
+		
+		calc_run_syms(ret, syms->rsyms);
+
+		calc_run_expr(&cond, syms->cond);
+		CALC_CONV((&cond), (&cond), dval);
+	}
+	
+	return NONE_STATUS;
+}
+
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	register status_enum_t status;
 	while (syms) {

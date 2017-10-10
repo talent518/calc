@@ -29,7 +29,7 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 %token LIST CLEAR
 %token CALL FUNC
 %token VARIABLE STR
-%token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY
+%token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY FOR
 %token INC DEC
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ
 %token INCLUDE
@@ -113,31 +113,41 @@ breakStmt: stmt
 stmtList: stmt
  | stmtList stmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$2.syms); } }
 ;
-stmt: ECHO_T stmtExprArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STMT_T,args,$2.callArgs);$$.syms->run = calc_run_sym_echo; } }
+stmt: forStmt ';'
  | RET stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,RET_STMT_T,expr,NULL);MEMDUP($$.syms->expr,&$2,exp_val_t);$$.syms->run = calc_run_sym_ret; } }
- | VARIABLE '=' stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_assign; }  }
  | IF '(' stmtExpr ')' '{' stmtList '}' %prec IFX { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP($$.syms->cond,&$3,exp_val_t);$$.syms->lsyms=$6.syms;$$.syms->rsyms=NULL;$$.syms->run = calc_run_sym_if; } }
  | IF '(' stmtExpr ')' '{' stmtList '}' ELSE '{' stmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP($$.syms->cond,&$3,exp_val_t);$$.syms->lsyms=$6.syms;$$.syms->rsyms=$10.syms;$$.syms->run = calc_run_sym_if; } }
  | WHILE '(' stmtExpr ')' '{' breakStmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,WHILE_STMT_T,cond,NULL);MEMDUP($$.syms->cond,&$3,exp_val_t);$$.syms->lsyms=$6.syms;$$.syms->rsyms=NULL;$$.syms->run = calc_run_sym_while; } }
  | DO '{' breakStmtList '}' WHILE '(' stmtExpr ')' ';' { if(EXPECTED(isSyntaxData)) { STMT($$,DO_WHILE_STMT_T,cond,NULL);MEMDUP($$.syms->cond,&$7,exp_val_t);$$.syms->lsyms=$3.syms;$$.syms->rsyms=NULL;$$.syms->run = calc_run_sym_do_while; } }
- | LIST ';' { if(EXPECTED(isSyntaxData)) { STMT($$,LIST_STMT_T,args,NULL);$$.syms->run = calc_run_sym_list; } }
- | CLEAR ';' { if(EXPECTED(isSyntaxData)) { STMT($$,CLEAR_STMT_T,args,NULL);$$.syms->run = calc_run_sym_clear; } }
+ | FOR '(' forStmtList ';' forStmtExpr ';' forStmtList ')' '{' breakStmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,FOR_STMT_T,cond,NULL);MEMDUP($$.syms->cond,&$5,exp_val_t);$$.syms->lsyms=$3.syms;$$.syms->rsyms=$7.syms;$$.syms->forSyms=$10.syms;$$.syms->run = calc_run_sym_for; } }
  | ARRAY VARIABLE arrayArgList ';' { if(EXPECTED(isSyntaxData)) { CALL_ARGS($1.callArgs,$2);$1.callArgs->next=$3.callArgs;STMT($$,ARRAY_STMT_T,args,$1.callArgs);$$.syms->run = calc_run_sym_array; } }
- | VARIABLE arrayArgList '=' stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | VARIABLE INC ';' { if(EXPECTED(isSyntaxData)) { STMT($$,INC_STMT_T,val,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);$$.syms->run = calc_run_sym_inc; } }
- | VARIABLE DEC ';' { if(EXPECTED(isSyntaxData)) { STMT($$,DEC_STMT_T,val,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);$$.syms->run = calc_run_sym_dec; } }
- | VARIABLE ADDEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ADDEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_addeq; } }
- | VARIABLE SUBEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,SUBEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_subeq; } }
- | VARIABLE MULEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,MULEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_muleq; } }
- | VARIABLE DIVEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_diveq; } }
- | VARIABLE MODEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_modeq; } }
- | VARIABLE arrayArgList ADDEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ADDEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | VARIABLE arrayArgList SUBEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,SUBEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | VARIABLE arrayArgList MULEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,MULEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | VARIABLE arrayArgList DIVEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | VARIABLE arrayArgList MODEQ stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
- | callExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,FUNC_STMT_T,args,NULL);MEMDUP($$.syms->expr,&$1,exp_val_t);$$.syms->run = calc_run_sym_func; } }
  | ';' { if(EXPECTED(isSyntaxData)) { STMT($$,NULL_STMT_T,args,NULL);$$.syms->run = calc_run_sym_null; } } // 空语句
+;
+forStmtList: forStmt
+ | /* 空语句 */ { if(EXPECTED(isSyntaxData)) { STMT($$,NULL_STMT_T,args,NULL);$$.syms->run = calc_run_sym_null; } }
+ | forStmtList ',' forStmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$3.syms); } }
+;
+forStmt: VARIABLE '=' stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_assign; } }
+ | LIST { if(EXPECTED(isSyntaxData)) { STMT($$,LIST_STMT_T,args,NULL);$$.syms->run = calc_run_sym_list; } }
+ | CLEAR { if(EXPECTED(isSyntaxData)) { STMT($$,CLEAR_STMT_T,args,NULL);$$.syms->run = calc_run_sym_clear; } }
+ | ECHO_T stmtExprArgList { if(EXPECTED(isSyntaxData)) { STMT($$,ECHO_STMT_T,args,$2.callArgs);$$.syms->run = calc_run_sym_echo; } }
+ | VARIABLE arrayArgList '=' stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,ASSIGN_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | VARIABLE INC { if(EXPECTED(isSyntaxData)) { STMT($$,INC_STMT_T,val,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);$$.syms->run = calc_run_sym_inc; } }
+ | VARIABLE DEC { if(EXPECTED(isSyntaxData)) { STMT($$,DEC_STMT_T,val,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);$$.syms->run = calc_run_sym_dec; } }
+ | VARIABLE ADDEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,ADDEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_addeq; } }
+ | VARIABLE SUBEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,SUBEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_subeq; } }
+ | VARIABLE MULEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,MULEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_muleq; } }
+ | VARIABLE DIVEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_diveq; } }
+ | VARIABLE MODEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$3,exp_val_t);$$.syms->run = calc_run_sym_variable_modeq; } }
+ | VARIABLE arrayArgList ADDEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,ADDEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | VARIABLE arrayArgList SUBEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,SUBEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | VARIABLE arrayArgList MULEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,MULEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | VARIABLE arrayArgList DIVEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,DIVEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | VARIABLE arrayArgList MODEQ stmtExpr { if(EXPECTED(isSyntaxData)) { STMT($$,MODEQ_STMT_T,var,NULL);MEMDUP($$.syms->var,&$1,exp_val_t);MEMDUP($$.syms->val,&$4,exp_val_t);$$.syms->var->type=ARRAY_T;$$.syms->var->callName=$1.str;$$.syms->var->callArgs=$2.callArgs;$$.syms->run = calc_run_sym_array_set; } }
+ | callExpr { if(EXPECTED(isSyntaxData)) { STMT($$,FUNC_STMT_T,args,NULL);MEMDUP($$.syms->expr,&$1,exp_val_t);$$.syms->run = calc_run_sym_func; } }
+;
+forStmtExpr: stmtExpr
+ | /* 空语句 */ { $$.type = NULL_T; }
 ;
 varArgList: varArg
  | varArgList ',' varArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$3.callArgs); } }

@@ -67,6 +67,7 @@ typedef enum _symbol_enum_t {
 	DIVEQ_STMT_T, // var /= val
 	MODEQ_STMT_T, // var %= val
 	FUNC_STMT_T, // demo(); demo(1,2,3);
+	FOR_STMT_T, // for(;;) { stmtList }
 	NULL_STMT_T
 } symbol_enum_t;
 
@@ -153,6 +154,7 @@ struct _func_symbol_t {
 			exp_val_t *cond;
 			func_symbol_t *lsyms;
 			func_symbol_t *rsyms;
+			func_symbol_t *forSyms;
 		};
 	};
 	unsigned int lineno;
@@ -244,6 +246,7 @@ status_enum_t calc_run_sym_variable_muleq(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms);
 void calc_free_expr(exp_val_t *expr);
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 void calc_free_vars(exp_val_t *expr);
