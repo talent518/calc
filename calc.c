@@ -20,30 +20,32 @@ static int linenostacktop = 0;
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
 #define CALC_CONV(dst,src,val) \
-	switch((src)->type) { \
-		case INT_T: CALC_CONV_ival2##val(dst, src);break; \
-		case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
-		case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
-		case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
-		case STR_T: { \
-			char *__p = (src)->str; \
-			type_enum_t __type = (dst)->type; \
-			CALC_CONV_str2##val(dst, src); \
-			if(((dst) != (src) && __type == STR_T) || ((dst) == (src) && (dst)->type != STR_T)) { \
-				free(__p); \
+	do { \
+		switch((src)->type) { \
+			case INT_T: CALC_CONV_ival2##val(dst, src);break; \
+			case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
+			case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
+			case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
+			case STR_T: { \
+				char *__p = (src)->str; \
+				type_enum_t __type = (dst)->type; \
+				CALC_CONV_str2##val(dst, src); \
+				if(((dst) != (src) && __type == STR_T) || ((dst) == (src) && (dst)->type != STR_T)) { \
+					free(__p); \
+				} \
+				break; \
 			} \
-			break; \
+			default: \
+				if((dst) != (src)) { \
+					if((dst)->type == STR_T) { \
+						free((dst)->str); \
+					} \
+					if((dst)->type != NULL_T) { \
+						memset((dst), 0, sizeof(exp_val_t)); \
+					} \
+				} \
 		} \
-		default: \
-			if((dst) != (src)) { \
-				if((dst)->type == STR_T) { \
-					free((dst)->str); \
-				} \
-				if((dst)->type != NULL_T) { \
-					memset((dst), 0, sizeof(exp_val_t)); \
-				} \
-			} \
-	}
+	} while(0)
 
 #define CALC_CONV_ival2ival(dst, src) (dst)->ival = (int)(src)->ival;(dst)->type = INT_T
 #define CALC_CONV_ival2lval(dst, src) (dst)->lval = (long int)(src)->ival;(dst)->type = LONG_T
@@ -85,14 +87,16 @@ char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
 #define CALC_CONV_op_INIT() exp_val_t val1 = {NULL_T}, val2 = {NULL_T}
 #define CALC_CONV_op(op1, op2, t, val) \
-	if((op1)->type !=t) { \
-		CALC_CONV(&val1, op1, val); \
-		op1 = &val1; \
-	} \
-	if((op2)->type != t) { \
-		CALC_CONV(&val2, op2, val); \
-		op2 = &val2; \
-	}
+	do { \
+		if((op1)->type !=t) { \
+			CALC_CONV(&val1, op1, val); \
+			op1 = &val1; \
+		} \
+		if((op2)->type != t) { \
+			CALC_CONV(&val2, op2, val); \
+			op2 = &val2; \
+		} \
+	} while(0)
 
 void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
@@ -1817,26 +1821,29 @@ void calc_free_vars(exp_val_t *expr) {
 	}
 }
 
-#define YYPARSE() frees.pDestructor = NULL; \
-	while((yret=yyparse()) && isSyntaxData) { \
-		if(yywrap()) { \
-			break; \
+#define YYPARSE() \
+	do { \
+		frees.pDestructor = NULL; \
+		while((yret=yyparse()) && isSyntaxData) { \
+			if(yywrap()) { \
+				break; \
+			} \
 		} \
-	} \
-	if(isSyntaxData) { \
-		memset(&expr, 0, sizeof(exp_val_t)); \
-		calc_run_syms(&expr, topSyms); \
-		calc_free_expr(&expr); \
-		zend_hash_clean(&topFrees); \
-		topSyms = NULL; \
-		if(isolate) { \
-			zend_hash_clean(&vars); \
-			zend_hash_clean(&funcs); \
+		if(isSyntaxData) { \
+			memset(&expr, 0, sizeof(exp_val_t)); \
+			calc_run_syms(&expr, topSyms); \
+			calc_free_expr(&expr); \
+			zend_hash_clean(&topFrees); \
+			topSyms = NULL; \
+			if(isolate) { \
+				zend_hash_clean(&vars); \
+				zend_hash_clean(&funcs); \
+			} \
 		} \
-	} \
-	while(yret && !yywrap()) {} \
-	zend_hash_clean(&files); \
-	frees.pDestructor = (dtor_func_t)free_frees
+		while(yret && !yywrap()) {} \
+		zend_hash_clean(&files); \
+		frees.pDestructor = (dtor_func_t)free_frees; \
+	} while(0)
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
