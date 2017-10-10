@@ -324,6 +324,7 @@ void calc_abs(exp_val_t *dst, exp_val_t *src) {
 		CALC_ABS_DEF(dst,src,LONG_T,lval);
 		CALC_ABS_DEF(dst,src,FLOAT_T,fval);
 		CALC_ABS_DEF(dst,src,DOUBLE_T,dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
@@ -342,6 +343,7 @@ void calc_minus(exp_val_t *dst, exp_val_t *src) {
 		CALC_MINUS_DEF(dst, src, LONG_T, lval);
 		CALC_MINUS_DEF(dst, src, FLOAT_T, fval);
 		CALC_MINUS_DEF(dst, src, DOUBLE_T, dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
@@ -369,6 +371,7 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 		CALC_SQRT_DEF(dst,src,LONG_T,lval);
 		CALC_SQRT_DEF(dst,src,FLOAT_T,fval);
 		CALC_SQRT_DEF(dst,src,DOUBLE_T,dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
@@ -421,6 +424,7 @@ void calc_echo(exp_val_t *src) {
 		case ARRAY_T:
 			calc_array_echo(src, src->arrayArgs, 0);
 			break;
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 #undef CALC_ECHO_DEF
@@ -434,6 +438,7 @@ void calc_sprintf(char *buf, exp_val_t *src) {
 		CALC_SPRINTF(buf,src,FLOAT_T,fval,"%.16f");
 		CALC_SPRINTF(buf,src,DOUBLE_T,dval,"%.19lf");
 		CALC_SPRINTF(buf,src,STR_T,str,"\"%s\"");
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 #undef CALC_SPRINTF
@@ -465,7 +470,7 @@ void calc_func_print(func_def_f *def) {
 	def->minArgc = 0;
 	unsigned errArgc = 0;
 	if (def->args) {
-		func_args_t *args = def->args;
+		register func_args_t *args = def->args;
 		while (args) {
 			if(def->argc) {
 				strcat(names, ", ");
@@ -510,7 +515,7 @@ void calc_func_def(func_def_f *def) {
 }
 
 void calc_free_args(call_args_t *args) {
-	call_args_t *tmpArgs;
+	register call_args_t *tmpArgs;
 
 	while (args) {
 		calc_free_expr(&args->val);
@@ -758,7 +763,7 @@ void calc_run_ne(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t *ptr = NULL, *tmp, val = {NULL_T};
-	call_args_t *args = expr->callArgs;
+	register call_args_t *args = expr->callArgs;
 	
 	zend_hash_find(&vars, expr->callName, strlen(expr->callName), (void**)&ptr);
 	if(!ptr) {
@@ -820,12 +825,12 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
+	register unsigned int argc = 0;
 	func_def_f *def = NULL;
 	exp_val_t val = {NULL_T}, *ptr;
-	call_args_t *tmpArgs = NULL;
-	func_args_t *funcArgs;
-	func_symbol_t *syms;
+	register call_args_t *tmpArgs = NULL;
+	register func_args_t *funcArgs;
+	register func_symbol_t *syms;
 	
 	zend_hash_find(&funcs, expr->callName, strlen(expr->callName), (void**)&def);
 	if (def) {
@@ -921,8 +926,9 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -947,8 +953,9 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -975,8 +982,9 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1002,8 +1010,9 @@ void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1029,8 +1038,9 @@ void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1056,8 +1066,9 @@ void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1083,8 +1094,9 @@ void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1110,8 +1122,9 @@ void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1137,8 +1150,9 @@ void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1164,8 +1178,9 @@ void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1191,8 +1206,9 @@ void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1212,8 +1228,9 @@ void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1233,8 +1250,9 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	exp_val_t *ptr;
 	
 	while(tmpArgs) {
@@ -1293,8 +1311,9 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1314,8 +1333,9 @@ void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr) {
-	unsigned int argc = 0;
-	call_args_t *args = expr->callArgs, *tmpArgs = expr->callArgs;
+	register unsigned int argc = 0;
+	call_args_t *args = expr->callArgs;
+	register call_args_t *tmpArgs = expr->callArgs;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1354,7 +1374,7 @@ void calc_array_init(exp_val_t *ptr, call_args_t *args) {
 }
 
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
-	call_args_t *args = syms->args;
+	register call_args_t *args = syms->args;
 	exp_val_t val = {NULL_T};
 	
 	while (args) {
@@ -1447,7 +1467,7 @@ status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms) {
 
 status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t val = {NULL_T};
-	call_args_t *callArgs = syms->args->next;
+	register call_args_t *callArgs = syms->args->next;
 	call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
 
 	while (callArgs) {
@@ -1642,7 +1662,7 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 	if (!ptr || ptr->type != ARRAY_T) {
 		yyerror("(warning) variable %s not is a array, type is %s", syms->var->callName, types[ptr->type - NULL_T]);
 	} else {
-		call_args_t *args = syms->var->callArgs;
+		register call_args_t *args = syms->var->callArgs;
 
 		exp_val_t *tmp = ptr, argsVal = {NULL_T};
 		while (args) {
@@ -1762,11 +1782,12 @@ void calc_free_expr(exp_val_t *expr) {
 			free(expr->callName);
 			break;
 		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
 void calc_array_free(exp_val_t *ptr, call_args_t *args) {
-	int i;
+	register int i;
 	for (i = 0; i < args->val.ival; i++) {
 		if(ptr->array[i].type == ARRAY_T && args->next) {
 			calc_array_free(&ptr->array[i], args->next);
@@ -1839,8 +1860,8 @@ int main(int argc, char **argv) {
 		"    files...       from file input source code for multiple.\n" \
 		, argv[0])
 	if(argc > 1) {
-		int i,yret;
-		int isolate = 1;
+		register int i,yret;
+		register int isolate = 1;
 		exp_val_t expr;
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
@@ -1908,7 +1929,7 @@ void yyerror(const char *s, ...) {
 	fprintf(stderr, "===================================\n");
 	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
-	int i;
+	register int i;
 	for(i=0; i<=linenostacktop; i++) {
 		fprintf(stderr, "Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
 	}
