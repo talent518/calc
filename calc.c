@@ -1353,337 +1353,410 @@ void calc_array_init(exp_val_t *ptr, call_args_t *args) {
 	}
 }
 
-status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
-	while (syms) {
-		linenostack[linenostacktop].lineno = syms->lineno;
-		switch (syms->type) {
-			case ECHO_STMT_T: {
-				call_args_t *args = syms->args;
-				exp_val_t val = {NULL_T};
-				while (args) {
-					switch (args->val.type) {
-						case STR_T:
-							printf("%s", args->val.str);
-							break;
-						case NULL_T:
-							printf("null");
-							break;
-						default: {
-							calc_run_expr(&val, &args->val);
-							calc_echo(&val);
-							calc_free_expr(&val);
-							break;
-						}
-					}
-					args = args->next;
-				}
+status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
+	call_args_t *args = syms->args;
+	exp_val_t val = {NULL_T};
+	
+	while (args) {
+		switch (args->val.type) {
+			case STR_T:
+				printf("%s", args->val.str);
 				break;
-			}
-			case RET_STMT_T: {
-				calc_run_expr(ret, syms->expr);
-				return RET_STATUS;
-			}
-			case IF_STMT_T: {
-				exp_val_t cond = {NULL_T};
-
-				calc_run_expr(&cond, syms->cond);
-				CALC_CONV((&cond), (&cond), dval);
-
-				status_enum_t status = (cond.dval ? calc_run_syms(ret, syms->lsyms) : calc_run_syms(ret, syms->rsyms));
-				calc_free_expr(&cond);
-				if (status != NONE_STATUS) {
-					return status;
-				}
+			case NULL_T:
+				printf("null");
 				break;
-			}
-			case WHILE_STMT_T: {
-				exp_val_t cond = {NULL_T};
-
-				calc_run_expr(&cond, syms->cond);
-				CALC_CONV((&cond), (&cond), dval);
-
-				status_enum_t status;
-				while (cond.dval) {
-					status = calc_run_syms(ret, syms->lsyms);
-					if (status != NONE_STATUS) {
-						calc_free_expr(&cond);
-						return status;
-					}
-
-					calc_run_expr(&cond, syms->cond);
-					CALC_CONV((&cond), (&cond), dval);
-				}
-				calc_free_expr(&cond);
-				break;
-			}
-			case DO_WHILE_STMT_T: {
-				exp_val_t cond = {NULL_T};
-				status_enum_t status;
-
-				do {
-					status = calc_run_syms(ret, syms->lsyms);
-					if (status == RET_STATUS) {
-						calc_free_expr(&cond);
-						return status;
-					} else if (status == BREAK_STATUS) {
-						break;
-					}
-
-					calc_run_expr(&cond, syms->cond);
-					CALC_CONV((&cond), (&cond), dval);
-				} while (cond.dval);
-				calc_free_expr(&cond);
-				break;
-			}
-			case BREAK_STMT_T: {
-				return BREAK_STATUS;
-			}
-			case LIST_STMT_T: {
-				LIST_STMT("\x1b[34m--- list in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_KEEP);
-				break;
-			}
-			case CLEAR_STMT_T: {
-				LIST_STMT("\x1b[34m--- clear in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_REMOVE);
-				break;
-			}
-			case ARRAY_STMT_T: {
-				exp_val_t val = {NULL_T};
-				call_args_t *callArgs = syms->args->next;
-				call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
-
-				while (callArgs) {
-					tmpArgs->val.type = NULL_T;
-					calc_run_expr(&tmpArgs->val, &callArgs->val);
-					CALC_CONV((&tmpArgs->val), (&tmpArgs->val), ival);
-					tmpArgs->val.type = INT_T;
-					if (tmpArgs->val.ival < 0) {
-						tmpArgs->val.ival = -tmpArgs->val.ival;
-					}
-					if(tmpArgs->val.ival == 0) {
-						yyerror("When the array %s is defined, the superscript is not equal to zero.", syms->args->val.str);
-						abort();
-					}
-					callArgs = callArgs->next;
-					if(callArgs) {
-						tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
-						tmpArgs = tmpArgs->next;
-					} else {
-						tmpArgs->next = NULL;
-					}
-				}
-
-				tmpArgs->next = NULL;
-				calc_array_init(&val, args);
-				val.arrayArgs = args;
-
-				zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-				break;
-			}
-			case GLOBAL_T: {
-				// 只在函数执行完成后做复制对应tmpVars中的变量到全局vars中)
-				break;
-			}
-			case INC_STMT_T: {
-				exp_val_t *ptr = NULL;
-				zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-				if (ptr) {
-					exp_val_t val={INT_T,1};
-					calc_add(ptr, ptr, &val);
-				} else {
-					exp_val_t val;
-					val.type = INT_T;
-					val.ival = 1;
-					
-					zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-				}
-				break;
-			}
-			case DEC_STMT_T: {
-				exp_val_t *ptr = NULL;
-				zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-				if (ptr) {
-					exp_val_t val={INT_T,1};
-					calc_sub(ptr, ptr, &val);
-				} else {
-					exp_val_t val;
-					val.type = INT_T;
-					val.ival = -1;
-					
-					zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-				}
-				break;
-			}
-			case ASSIGN_STMT_T:
-			case ADDEQ_STMT_T:
-			case SUBEQ_STMT_T:
-			case MULEQ_STMT_T:
-			case DIVEQ_STMT_T:
-			case MODEQ_STMT_T: {
-				exp_val_t val = {NULL_T};
-				
-				calc_run_expr(&val, syms->val);
-				
-				switch (syms->var->type) {
-					case VAR_T: {
-						exp_val_t *ptr = NULL;
-						zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-						if (ptr) {
-							switch(syms->type) {
-								case ADDEQ_STMT_T:
-									calc_add(ptr, ptr, &val);
-									ptr->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case SUBEQ_STMT_T:
-									calc_sub(ptr, ptr, &val);
-									ptr->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case MULEQ_STMT_T:
-									calc_mul(ptr, ptr, &val);
-									ptr->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case DIVEQ_STMT_T:
-									calc_div(ptr, ptr, &val);
-									ptr->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case MODEQ_STMT_T:
-									calc_mod(ptr, ptr, &val);
-									ptr->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								default:
-									if(ptr->type == STR_T) {
-										free(ptr->str);
-									}
-									memcpy(ptr, &val, sizeof(exp_val_t));
-									if(ptr->type == STR_T) {
-										ptr->run = calc_run_strdup;
-									} else {
-										ptr->run = calc_run_copy;
-									}
-									break;
-							}
-						} else {
-							zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-						}
-						break;
-					}
-					case ARRAY_T: {
-						exp_val_t *ptr = NULL;
-						zend_hash_find(&vars, syms->var->callName, strlen(syms->var->callName), (void**)&ptr);
-						if (ptr->type != ARRAY_T) {
-							yyerror("(warning) variable %s not is a array, type is %s", syms->var->callName, types[ptr->type - NULL_T]);
-						} else {
-							call_args_t *args = syms->var->callArgs;
-
-							exp_val_t *tmp = ptr, argsVal = {NULL_T};
-							while (args) {
-								calc_run_expr(&argsVal, &args->val);
-								CALC_CONV((&argsVal), (&argsVal), ival);
-								argsVal.type = INT_T;
-								if (argsVal.ival < 0) {
-									argsVal.ival = -argsVal.ival;
-								}
-
-								if (argsVal.ival < tmp->arrlen) {
-									tmp = &tmp->array[argsVal.ival];
-									if (tmp->type != ARRAY_T) {
-										if (args->next) {
-											yyerror("An array of %s dimension bounds", syms->var->callName);
-										} else {
-											if(tmp->type == NULL_T) {
-												switch(syms->type) {
-													case SUBEQ_STMT_T:
-														calc_minus(tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													case MULEQ_STMT_T:
-													case DIVEQ_STMT_T:
-													case MODEQ_STMT_T:
-														tmp->type = INT_T;
-														tmp->ival = 0;
-														tmp->run = calc_run_copy;
-														break;
-													default:
-														memcpy(tmp, &val, sizeof(exp_val_t));
-														if(tmp->type == STR_T) {
-															tmp->run = calc_run_strdup;
-														} else {
-															tmp->run = calc_run_copy;
-														}
-														break;
-												}
-											} else {
-												switch(syms->type) {
-													case ADDEQ_STMT_T:
-														calc_add(tmp, tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													case SUBEQ_STMT_T:
-														calc_sub(tmp, tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													case MULEQ_STMT_T:
-														calc_mul(tmp, tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													case DIVEQ_STMT_T:
-														calc_div(tmp, tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													case MODEQ_STMT_T:
-														calc_mod(tmp, tmp, &val);
-														tmp->run = calc_run_copy;
-														calc_free_expr(&val);
-														break;
-													default:
-														if(tmp->type == STR_T) {
-															free(tmp->str);
-														}
-														memcpy(tmp, &val, sizeof(exp_val_t));
-														if(tmp->type == STR_T) {
-															tmp->run = calc_run_strdup;
-														} else {
-															tmp->run = calc_run_copy;
-														}
-														break;
-												}
-											}
-										}
-										goto nextStmt;
-									}
-								} else {
-									yyerror("An array of %s index out of bounds", syms->var->callName);
-									tmp = NULL;
-									goto nextStmt;
-								}
-
-								args = args->next;
-							}
-
-							yyerror("Array %s dimension deficiency", syms->var->callName);
-						}
-					}
-				}
-				break;
-			}
-			case FUNC_STMT_T: {
-				exp_val_t val = {NULL_T};
-				calc_run_expr(&val, syms->expr);
+			default: {
+				calc_run_expr(&val, &args->val);
+				calc_echo(&val);
 				calc_free_expr(&val);
 				break;
 			}
 		}
+		args = args->next;
+	}
+	
+	return NONE_STATUS;
+}
 
-		nextStmt: syms = syms->next;
+status_enum_t calc_run_sym_ret(exp_val_t *ret, func_symbol_t *syms) {
+	calc_run_expr(ret, syms->expr);
+	return RET_STATUS;
+}
+
+status_enum_t calc_run_sym_if(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t cond = {NULL_T};
+
+	calc_run_expr(&cond, syms->cond);
+	CALC_CONV((&cond), (&cond), dval);
+
+	return (cond.dval ? calc_run_syms(ret, syms->lsyms) : calc_run_syms(ret, syms->rsyms));
+}
+
+status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t cond = {NULL_T};
+
+	calc_run_expr(&cond, syms->cond);
+	CALC_CONV((&cond), (&cond), dval);
+
+	status_enum_t status;
+	while (cond.dval) {
+		status = calc_run_syms(ret, syms->lsyms);
+		if (status != NONE_STATUS) {
+			return status;
+		}
+
+		calc_run_expr(&cond, syms->cond);
+		CALC_CONV((&cond), (&cond), dval);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t cond = {NULL_T};
+	status_enum_t status;
+
+	do {
+		status = calc_run_syms(ret, syms->lsyms);
+		if (status != NONE_STATUS) {
+			return status;
+		}
+
+		calc_run_expr(&cond, syms->cond);
+		CALC_CONV((&cond), (&cond), dval);
+	} while (cond.dval);
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_break(exp_val_t *ret, func_symbol_t *syms) {
+	return BREAK_STATUS;
+}
+
+status_enum_t calc_run_sym_list(exp_val_t *ret, func_symbol_t *syms) {
+	LIST_STMT("\x1b[34m--- list in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_KEEP);
+
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms) {
+	LIST_STMT("\x1b[34m--- clear in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_REMOVE);
+
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	call_args_t *callArgs = syms->args->next;
+	call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
+
+	while (callArgs) {
+		tmpArgs->val.type = NULL_T;
+		calc_run_expr(&tmpArgs->val, &callArgs->val);
+		CALC_CONV((&tmpArgs->val), (&tmpArgs->val), ival);
+		tmpArgs->val.type = INT_T;
+		if (tmpArgs->val.ival < 0) {
+			tmpArgs->val.ival = -tmpArgs->val.ival;
+		}
+		if(tmpArgs->val.ival == 0) {
+			yyerror("When the array %s is defined, the superscript is not equal to zero.", syms->args->val.str);
+			abort();
+		}
+		callArgs = callArgs->next;
+		if(callArgs) {
+			tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
+			tmpArgs = tmpArgs->next;
+		} else {
+			tmpArgs->next = NULL;
+		}
+	}
+
+	tmpArgs->next = NULL;
+	calc_array_init(&val, args);
+	val.arrayArgs = args;
+
+	zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_null(exp_val_t *ret, func_symbol_t *syms) {
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_inc(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t *ptr = NULL;
+
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		exp_val_t val={INT_T,1};
+		calc_add(ptr, ptr, &val);
+	} else {
+		exp_val_t val;
+		val.type = INT_T;
+		val.ival = 1;
+		val.run = calc_run_copy;
+		
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+				
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_dec(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t *ptr = NULL;
+	
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		exp_val_t val={INT_T,1};
+		calc_sub(ptr, ptr, &val);
+	} else {
+		exp_val_t val;
+		val.type = INT_T;
+		val.ival = -1;
+		val.run = calc_run_copy;
+		
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	calc_run_expr(&val, syms->expr);
+	calc_free_expr(&val);
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		if(ptr->type == STR_T) {
+			free(ptr->str);
+		}
+		memcpy(ptr, &val, sizeof(exp_val_t));
+		if(ptr->type == STR_T) {
+			ptr->run = calc_run_strdup;
+		} else {
+			ptr->run = calc_run_copy;
+		}
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_addeq(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		calc_add(ptr, ptr, &val);
+		ptr->run = calc_run_copy;
+		calc_free_expr(&val);
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_subeq(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		calc_sub(ptr, ptr, &val);
+		ptr->run = calc_run_copy;
+		calc_free_expr(&val);
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_muleq(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		calc_mul(ptr, ptr, &val);
+		ptr->run = calc_run_copy;
+		calc_free_expr(&val);
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		calc_div(ptr, ptr, &val);
+		ptr->run = calc_run_copy;
+		calc_free_expr(&val);
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	if (ptr) {
+		calc_mod(ptr, ptr, &val);
+		ptr->run = calc_run_copy;
+		calc_free_expr(&val);
+	} else {
+		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	}
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
+	exp_val_t val = {NULL_T};
+	exp_val_t *ptr = NULL;
+
+	calc_run_expr(&val, syms->val);
+	zend_hash_find(&vars, syms->var->callName, strlen(syms->var->callName), (void**)&ptr);
+	if (!ptr || ptr->type != ARRAY_T) {
+		yyerror("(warning) variable %s not is a array, type is %s", syms->var->callName, types[ptr->type - NULL_T]);
+	} else {
+		call_args_t *args = syms->var->callArgs;
+
+		exp_val_t *tmp = ptr, argsVal = {NULL_T};
+		while (args) {
+			calc_run_expr(&argsVal, &args->val);
+			CALC_CONV((&argsVal), (&argsVal), ival);
+			argsVal.type = INT_T;
+			if (argsVal.ival < 0) {
+				argsVal.ival = -argsVal.ival;
+			}
+
+			if (argsVal.ival < tmp->arrlen) {
+				tmp = &tmp->array[argsVal.ival];
+				if (tmp->type != ARRAY_T) {
+					if (args->next) {
+						yyerror("An array of %s dimension bounds", syms->var->callName);
+						
+						goto breakStmt;
+					} else {
+						if(tmp->type == NULL_T) {
+							switch(syms->type) {
+								case SUBEQ_STMT_T:
+									calc_minus(tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								case MULEQ_STMT_T:
+								case DIVEQ_STMT_T:
+								case MODEQ_STMT_T:
+									tmp->type = INT_T;
+									tmp->ival = 0;
+									tmp->run = calc_run_copy;
+									break;
+								default:
+									memcpy(tmp, &val, sizeof(exp_val_t));
+									if(tmp->type == STR_T) {
+										tmp->run = calc_run_strdup;
+									} else {
+										tmp->run = calc_run_copy;
+									}
+									break;
+							}
+						} else {
+							switch(syms->type) {
+								case ADDEQ_STMT_T:
+									calc_add(tmp, tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								case SUBEQ_STMT_T:
+									calc_sub(tmp, tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								case MULEQ_STMT_T:
+									calc_mul(tmp, tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								case DIVEQ_STMT_T:
+									calc_div(tmp, tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								case MODEQ_STMT_T:
+									calc_mod(tmp, tmp, &val);
+									tmp->run = calc_run_copy;
+									calc_free_expr(&val);
+									break;
+								default:
+									if(tmp->type == STR_T) {
+										free(tmp->str);
+									}
+									memcpy(tmp, &val, sizeof(exp_val_t));
+									if(tmp->type == STR_T) {
+										tmp->run = calc_run_strdup;
+									} else {
+										tmp->run = calc_run_copy;
+									}
+									break;
+							}
+						}
+						
+						return NONE_STATUS;
+					}
+				}
+			} else {
+				yyerror("An array of %s index out of bounds", syms->var->callName);
+				goto breakStmt;
+			}
+
+			args = args->next;
+		}
+
+		yyerror("Array %s dimension deficiency", syms->var->callName);
+	}
+	
+	breakStmt:
+	calc_free_expr(&val);
+	
+	return NONE_STATUS;
+}
+
+status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
+	while (syms) {
+		linenostack[linenostacktop].lineno = syms->lineno;
+		
+		syms->run(ret, syms);
+
+		syms = syms->next;
 	}
 
 	return NONE_STATUS;

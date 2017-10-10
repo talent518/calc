@@ -81,6 +81,7 @@ typedef struct _exp_val_t exp_val_t;
 typedef struct _func_def_f func_def_f;
 
 typedef void (*expr_run_func_t)(exp_val_t *ret, exp_val_t *expr);
+typedef status_enum_t (*sym_run_func_t)(exp_val_t *ret, func_symbol_t *syms);
 
 struct _func_def_f {
 	char *name;
@@ -158,6 +159,7 @@ struct _func_symbol_t {
 	unsigned int lineno;
 	struct _func_symbol_t *next;
 	struct _func_symbol_t *tail;
+	sym_run_func_t run;
 };
 
 extern func_symbol_t *topSyms;
@@ -223,6 +225,26 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr);
 void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr);
+status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_ret(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_if(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_break(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_list(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_null(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_inc(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_dec(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_addeq(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_subeq(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_muleq(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms);
 void calc_free_expr(exp_val_t *expr);
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 void calc_free_vars(exp_val_t *expr);
