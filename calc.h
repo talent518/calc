@@ -123,6 +123,7 @@ struct _exp_val_t {
 			struct _exp_val_t *right;
 		};
 		struct {
+			char isref;
 			unsigned int arrlen;
 			struct _exp_val_t *array;
 			call_args_t *arrayArgs;
@@ -265,7 +266,7 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms);
 
 void calc_conv_str(exp_val_t *dst, exp_val_t *src);
-void calc_free_expr(exp_val_t *expr);
+#define calc_free_expr calc_free_vars
 void calc_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
 

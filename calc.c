@@ -13,6 +13,7 @@ int exitCode = 0;
 typedef struct _linenostack {
 	unsigned int lineno;
 	char *funcname;
+	func_symbol_t *syms;
 } linenostack_t;
 
 static linenostack_t linenostack[1024]={{0,"TOP"}};
@@ -555,11 +556,14 @@ void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
 	
 	zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
 	if (ptr) {
-		if(ptr->type < ARRAY_T) {
+		if(ptr->type < ARRAY_T || linenostack[linenostacktop].syms->type == RET_STMT_T && linenostack[linenostacktop].syms->expr->type == VAR_T) {
 			memcpy(ret, ptr, sizeof(exp_val_t));
 		}
 		if(ptr->type == STR_T) {
 			ret->str = strndup(ptr->str, ptr->strlen);
+		}
+		if(ptr->type == ARRAY_T) {
+			ptr->isref = 1;
 		}
 	} else {
 		ret->type = INT_T;
@@ -1809,6 +1813,7 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	register status_enum_t status;
 	while (syms) {
+		linenostack[linenostacktop].syms = syms;
 		linenostack[linenostacktop].lineno = syms->lineno;
 		
 		status = syms->run(ret, syms);
@@ -1820,24 +1825,6 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	}
 
 	return NONE_STATUS;
-}
-
-void calc_free_expr(exp_val_t *expr) {
-	switch (expr->type) {
-		case STR_T:
-		case VAR_T: {
-			dprintf("--- FreeExpr: VAR_T/STR_T ---\n");
-			free(expr->str);
-			break;
-		}
-		case ARRAY_T: {
-			dprintf("--- FreeExpr: ARRAY_T ---\n");
-			calc_free_args(expr->callArgs);
-			free(expr->callName);
-			break;
-		}
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
 }
 
 void calc_array_free(exp_val_t *ptr, call_args_t *args) {
@@ -1856,8 +1843,10 @@ void calc_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
 			dprintf("--- FreeVars: ARRAY_T ---\n");
-			calc_array_free(expr, expr->arrayArgs);
-			calc_free_args(expr->arrayArgs);
+			if(!expr->isref) {
+				calc_array_free(expr, expr->arrayArgs);
+				calc_free_args(expr->arrayArgs);
+			}
 			break;
 		}
 		case STR_T: {
