@@ -556,13 +556,13 @@ void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
 	
 	zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
 	if (ptr) {
-		if(ptr->type < ARRAY_T || linenostack[linenostacktop].syms->type == RET_STMT_T && linenostack[linenostacktop].syms->expr->type == VAR_T) {
+		if(ptr->type < ARRAY_T || (linenostack[linenostacktop].syms->type == RET_STMT_T && linenostack[linenostacktop].syms->expr->type == VAR_T)) {
 			memcpy(ret, ptr, sizeof(exp_val_t));
 		}
 		if(ptr->type == STR_T) {
 			ret->str = strndup(ptr->str, ptr->strlen);
 		}
-		if(ptr->type == ARRAY_T) {
+		if(ret->type == ARRAY_T) {
 			ptr->isref = 1;
 		}
 	} else {
@@ -1370,6 +1370,7 @@ void calc_array_init(exp_val_t *ptr, call_args_t *args) {
 	register int i;
 
 	ptr->type = ARRAY_T;
+	ptr->isref = 0;
 	ptr->arrlen = args->val.ival;
 	ptr->array = (exp_val_t*) malloc(sizeof(exp_val_t) * args->val.ival);
 
@@ -1842,7 +1843,7 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args) {
 void calc_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
-			dprintf("--- FreeVars: ARRAY_T ---\n");
+			dprintf("--- FreeVars: ARRAY_T(%d) ---\n", (int)expr->isref);
 			if(!expr->isref) {
 				calc_array_free(expr, expr->arrayArgs);
 				calc_free_args(expr->arrayArgs);
