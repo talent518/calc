@@ -10,7 +10,7 @@
 #define APPEND(args,val) args->tail->next=val;args->tail=val
 #define STMT(o,t,k,v) MEMALLOC(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->tail=o.syms;o.syms->next=NULL
 
-#define FUNC_MOVE_FREES(ht) //zend_hash_init(ht, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, ht)
+#define FUNC_MOVE_FREES(ht) zend_hash_init(ht, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, ht)
 
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
@@ -52,7 +52,7 @@ calclist:
  | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=NULL;$$.def->syms=$7.syms;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
  | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=$8.syms;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
- | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
+ | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees); } }
  | calclist INCLUDE STR ';' {
 	FILE *fp = fopen($3.str, "r");
 	if(fp) {
@@ -72,20 +72,20 @@ calclist:
 			yypush_buffer_state(yy_create_buffer(fp, 16384));
 		} else {
 			yyerror("File \"%s\" already included!\n", $3.str);
-			fclose(fp);/*
+			fclose(fp);
 			if(EXPECTED(isSyntaxData)) {
 				free($3.str);
-			}*/
+			}
 		}
 	} else {
-		yyerror("File \"%s\" not found!\n", $3.str);/*
+		yyerror("File \"%s\" not found!\n", $3.str);
 		if(EXPECTED(isSyntaxData)) {
 			free($3.str);
-		}*/
-	}/*
+		}
+	}
 	if(EXPECTED(isSyntaxData)) {
 		zend_hash_clean(&frees);
-	}*/
+	}
 }
 ;
 

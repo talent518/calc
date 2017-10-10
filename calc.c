@@ -523,7 +523,7 @@ void calc_free_args(call_args_t *args) {
 void calc_free_func(func_def_f *def) {
 	free(def->names);
 
-	//zend_hash_destroy(&def->frees);
+	zend_hash_destroy(&def->frees);
 }
 
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr) {
@@ -1739,12 +1739,8 @@ void calc_free_vars(exp_val_t *expr) {
 
 #define YYPARSE() frees.pDestructor = NULL; \
 	while((yret=yyparse()) && isSyntaxData) { \
-		/*frees.pDestructor = (dtor_func_t)free_frees;*/ \
 		if(yywrap()) { \
 			break; \
-		} else { \
-			/*zend_hash_clean(&frees); \
-			frees.pDestructor = NULL;*/ \
 		} \
 	} \
 	if(isSyntaxData) { \
@@ -1760,8 +1756,7 @@ void calc_free_vars(exp_val_t *expr) {
 	} \
 	while(yret && !yywrap()) {} \
 	zend_hash_clean(&files); \
-	frees.pDestructor = (dtor_func_t)free_frees/*; \
-	zend_hash_clean(&frees)*/
+	frees.pDestructor = (dtor_func_t)free_frees
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
@@ -1880,9 +1875,9 @@ int yywrap() {
 
 		includeDeep--;
 
-		/*if(EXPECTED(isSyntaxData)) {
+		if(EXPECTED(isSyntaxData)) {
 			free(curFileName);
-		}*/
+		}
 
 		fclose(yyin);
 		curFileName = tailWrapStack->filename;
