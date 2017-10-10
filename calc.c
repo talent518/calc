@@ -523,7 +523,7 @@ void calc_free_args(call_args_t *args) {
 void calc_free_func(func_def_f *def) {
 	free(def->names);
 
-	zend_hash_destroy(&def->frees);
+	//zend_hash_destroy(&def->frees);
 }
 
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr) {
@@ -1934,9 +1934,9 @@ int yywrap() {
 
 		includeDeep--;
 
-		if(EXPECTED(isSyntaxData)) {
+		/*if(EXPECTED(isSyntaxData)) {
 			free(curFileName);
-		}
+		}*/
 
 		fclose(yyin);
 		curFileName = tailWrapStack->filename;
