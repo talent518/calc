@@ -10,14 +10,8 @@ func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
 int exitCode = 0;
 
-typedef struct _linenostack {
-	unsigned int lineno;
-	char *funcname;
-	func_symbol_t *syms;
-} linenostack_t;
-
-static linenostack_t linenostack[1024]={{0,"TOP"}};
-static int linenostacktop = 0;
+linenostack_t linenostack[1024]={{0,"TOP"}};
+int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 

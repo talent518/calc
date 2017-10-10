@@ -281,6 +281,15 @@ void str2val(exp_val_t *val, char *str);
 
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
+typedef struct _linenostack {
+	unsigned int lineno;
+	char *funcname;
+	func_symbol_t *syms;
+} linenostack_t;
+
+extern linenostack_t linenostack;
+extern int linenostacktop;
+
 void seed_rand();
 void yyerror(const char *s, ...);
 void red_stderr_printf(const char *s, ...);
