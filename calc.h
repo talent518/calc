@@ -158,6 +158,7 @@ struct _func_symbol_t {
 			func_symbol_t *lsyms;
 			func_symbol_t *rsyms;
 			func_symbol_t *forSyms;
+			HashTable *ht;
 		};
 	};
 	unsigned int lineno;
@@ -166,6 +167,11 @@ struct _func_symbol_t {
 	sym_run_func_t run;
 };
 
+typedef struct _pool_t {
+	void *ptr;
+	dtor_func_t run;
+} pool_t;
+
 extern func_symbol_t *topSyms;
 extern HashTable topFrees;
 extern int yylineno;
@@ -173,6 +179,10 @@ extern int yyleng;
 extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
+extern HashTable pools;
+
+void append_pool(void *ptr, dtor_func_t run);
+void zend_hash_destroy_ptr(HashTable *ht);
 
 #define free_frees free
 

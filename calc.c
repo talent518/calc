@@ -1,5 +1,6 @@
 #include "calc.h"
 
+HashTable pools;
 HashTable vars;
 HashTable funcs;
 HashTable files;
@@ -1799,22 +1800,10 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 		return NONE_STATUS;
 	}
 
-	syms = syms->lsyms;
-	while (syms) {
-		linenostack[linenostacktop].lineno = syms->lineno;
-		
-		if(syms->type == DEFAULT_STMT_T || (syms->type == CASE_STMT_T && !strcmp(cond.str, syms->cond->str))) {
-			calc_free_expr(&cond);
-			
-			return calc_run_syms(ret, syms->next) == RET_STATUS ? RET_STATUS : NONE_STATUS;
-		}
-		
-		syms = syms->next;
-	}
-	
+	zend_hash_find(syms->ht, cond.str, cond.strlen, (void**)&syms->rsyms);
 	calc_free_expr(&cond);
-
-	return NONE_STATUS;
+	
+	return syms->rsyms && calc_run_syms(ret, syms->rsyms) == RET_STATUS ? RET_STATUS : NONE_STATUS;
 }
 
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
@@ -1906,12 +1895,27 @@ void calc_free_vars(exp_val_t *expr) {
 		frees.pDestructor = (dtor_func_t)free_frees; \
 	} while(0)
 
+void append_pool(void *ptr, dtor_func_t run) {
+	pool_t p = {ptr,run};
+
+	zend_hash_next_index_insert(&pools, &p, sizeof(pool_t), NULL);
+}
+
+void zend_hash_destroy_ptr(HashTable *ht) {
+	zend_hash_destroy(ht);
+	free(ht);
+}
+void free_pools(pool_t *p) {
+	p->run(p->ptr);
+}
+
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&frees, 20, NULL);
 	zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
 	zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 	zend_hash_init(&funcs, 2, (dtor_func_t)calc_free_func);
+	zend_hash_init(&pools, 2, (dtor_func_t)free_pools);
 
 	#define USAGE() printf("Usage: %s { -v | -h | - | files.. }\n" \
 		"\n" \
@@ -1988,6 +1992,7 @@ int main(int argc, char **argv) {
 	zend_hash_destroy(&frees);
 	zend_hash_destroy(&vars);
 	zend_hash_destroy(&funcs);
+	zend_hash_destroy(&pools);
 
 	return exitCode;
 }
