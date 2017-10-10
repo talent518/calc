@@ -168,6 +168,8 @@ extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
 
+#define free_frees free
+
 void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
 void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
 void calc_mul(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);

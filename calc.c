@@ -17,8 +17,6 @@ typedef struct _linenostack {
 static linenostack_t linenostack[1024]={{0,"TOP"}};
 static int linenostacktop = 0;
 
-#define free_frees free
-
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
 #define CALC_CONV(dst,src,val) \
@@ -525,8 +523,7 @@ void calc_free_args(call_args_t *args) {
 void calc_free_func(func_def_f *def) {
 	free(def->names);
 
-	def->frees.pDestructor = (dtor_func_t)free_frees;
-	zend_hash_destroy(&def->frees);
+	//zend_hash_destroy(&def->frees);
 }
 
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr) {
@@ -1742,12 +1739,12 @@ void calc_free_vars(exp_val_t *expr) {
 
 #define YYPARSE() frees.pDestructor = NULL; \
 	while((yret=yyparse()) && isSyntaxData) { \
-		frees.pDestructor = (dtor_func_t)free_frees; \
+		/*frees.pDestructor = (dtor_func_t)free_frees;*/ \
 		if(yywrap()) { \
 			break; \
 		} else { \
-			zend_hash_clean(&frees); \
-			frees.pDestructor = NULL; \
+			/*zend_hash_clean(&frees); \
+			frees.pDestructor = NULL;*/ \
 		} \
 	} \
 	if(isSyntaxData) { \
@@ -1763,8 +1760,8 @@ void calc_free_vars(exp_val_t *expr) {
 	} \
 	while(yret && !yywrap()) {} \
 	zend_hash_clean(&files); \
-	frees.pDestructor = (dtor_func_t)free_frees; \
-	zend_hash_clean(&frees)
+	frees.pDestructor = (dtor_func_t)free_frees/*; \
+	zend_hash_clean(&frees)*/
 
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
@@ -1883,9 +1880,9 @@ int yywrap() {
 
 		includeDeep--;
 
-		if(EXPECTED(isSyntaxData)) {
+		/*if(EXPECTED(isSyntaxData)) {
 			free(curFileName);
-		}
+		}*/
 
 		fclose(yyin);
 		curFileName = tailWrapStack->filename;
