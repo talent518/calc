@@ -56,6 +56,7 @@
 typedef unsigned char zend_bool;
 typedef unsigned char zend_uchar;
 typedef unsigned int zend_uint;
+typedef long zend_long;
 typedef unsigned long zend_ulong;
 typedef unsigned short zend_ushort;
 

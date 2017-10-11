@@ -1799,9 +1799,7 @@ void calc_free_vars(exp_val_t *expr) {
 			free(expr->str);
 			break;
 		}
-		default: {
-			dprintf("--- FreeVars: %s ---\n", types[expr->type - NULL_T]);
-		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
 
@@ -1983,4 +1981,3 @@ int yywrap() {
 		return 1;
 	}
 }
-

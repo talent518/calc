@@ -1,3 +1,5 @@
+#ifndef _CALC_H
+#define CALC_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -394,3 +396,4 @@ zend_always_inline static double microtime() {
 #define YYERROR_VERBOSE 1
 #define YY_(s) s"\n"
 #include "parser.h"
+#endif

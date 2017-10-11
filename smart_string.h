@@ -10,9 +10,6 @@ typedef struct {
 	size_t a;
 } smart_string;
 
-typedef unsigned long int zend_ulong;
-typedef long int zend_long;
-
 #define smart_string_0(x) do {										\
 	if ((x)->c) {													\
 		(x)->c[(x)->len] = '\0';									\
