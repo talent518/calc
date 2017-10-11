@@ -9,9 +9,8 @@
 #include <float.h>
 #include <limits.h>
 
-//#define inline __inline
-
 #include "zend_hash.h"
+#include "smart_string.h"
 
 #define max(a, b) ((a)>(b) ? (a) : (b))
 
@@ -197,7 +196,7 @@ void calc_minus(exp_val_t *dst, exp_val_t *src);
 void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
 void calc_sqrt(exp_val_t *dst, exp_val_t *src);
 void calc_echo(exp_val_t *src);
-void calc_sprintf(char *buf, exp_val_t *src);
+void calc_sprintf(smart_string *buf, exp_val_t *src);
 void calc_print(char *p);
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 void calc_func_print(func_def_f *def);
@@ -277,7 +276,57 @@ void calc_array_free(exp_val_t *ptr, call_args_t *args);
 		(ret)->run = calc_run_copy; \
 	}
 
-void str2val(exp_val_t *val, char *str);
+zend_always_inline static void str2val(exp_val_t *val, char *str) {
+	int n=strlen(str);
+	switch(str[n-1]) {
+		case 'I':
+		case 'i':
+			val->type=INT_T;
+			val->ival = atol(str);
+			break;
+		case 'L':
+		case 'l':
+			val->type=LONG_T;
+			val->lval = atol(str);
+			break;
+		case 'F':
+		case 'f':
+			val->type=FLOAT_T;
+			val->fval = atof(str);
+			break;
+		case 'D':
+		case 'd':
+			val->type=DOUBLE_T;
+			val->dval = atof(str);
+			break;
+		case 'R':
+		case 'r':
+			val->type=DOUBLE_T;
+			val->dval = atof(str) * M_PI / 180.0;
+			break;
+		default:
+			if(strchr(str,'.')) {
+				double d = atof(str);
+				if(FLT_MIN <= d && d <= FLT_MAX) {
+					val->type = FLOAT_T;
+					val->fval = d;
+				} else {
+					val->type = DOUBLE_T;
+					val->dval = d;
+				}
+			} else {
+				long int i = atoi(str);
+				if(INT_MIN <= i && i <= INT_MAX) {
+					val->type = INT_T;
+					val->ival = i;
+				} else {
+					val->type = LONG_T;
+					val->lval = i;
+				}
+			}
+			break;
+	}
+}
 
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
@@ -332,7 +381,7 @@ extern int exitCode;
 		yypop_buffer_state(); \
 	}
 
-static inline double microtime() {
+zend_always_inline static double microtime() {
 	struct timeval tp = {0};
 
 	if (gettimeofday(&tp, NULL)) {

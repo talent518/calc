@@ -98,58 +98,6 @@ void calc_conv_str(exp_val_t *dst, exp_val_t *src) {
 	CALC_CONV(dst, src, str);
 }
 
-void str2val(exp_val_t *val, char *str) {
-	int n=strlen(str);
-	switch(str[n-1]) {
-		case 'I':
-		case 'i':
-			val->type=INT_T;
-			val->ival = atol(str);
-			break;
-		case 'L':
-		case 'l':
-			val->type=LONG_T;
-			val->lval = atol(str);
-			break;
-		case 'F':
-		case 'f':
-			val->type=FLOAT_T;
-			val->fval = atof(str);
-			break;
-		case 'D':
-		case 'd':
-			val->type=DOUBLE_T;
-			val->dval = atof(str);
-			break;
-		case 'R':
-		case 'r':
-			val->type=DOUBLE_T;
-			val->dval = atof(str) * M_PI / 180.0;
-			break;
-		default:
-			if(strchr(str,'.')) {
-				double d = atof(str);
-				if(FLT_MIN <= d && d <= FLT_MAX) {
-					val->type = FLOAT_T;
-					val->fval = d;
-				} else {
-					val->type = DOUBLE_T;
-					val->dval = d;
-				}
-			} else {
-				long int i = atoi(str);
-				if(INT_MIN <= i && i <= INT_MAX) {
-					val->type = INT_T;
-					val->ival = i;
-				} else {
-					val->type = LONG_T;
-					val->lval = i;
-				}
-			}
-			break;
-	}
-}
-
 // dst = op1 + op2
 void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 	CALC_CONV_op_INIT();
@@ -433,15 +381,18 @@ void calc_echo(exp_val_t *src) {
 }
 #undef CALC_ECHO_DEF
 
-#define CALC_SPRINTF(buf,src,type,val,str) case type: sprintf(buf,str,src->val);break
+#define CALC_SPRINTF(src,type,val,str) case type: len = sprintf(s,str,src->val);smart_string_appendl(buf, s, len);break
 // printf(src)
-void calc_sprintf(char *buf, exp_val_t *src) {
+void calc_sprintf(smart_string *buf, exp_val_t *src) {
+	char s[32] = "";
+	int len;
+
 	switch (src->type) {
-		CALC_SPRINTF(buf, src, INT_T, ival, "%d");
-		CALC_SPRINTF(buf,src,LONG_T,lval,"%ld");
-		CALC_SPRINTF(buf,src,FLOAT_T,fval,"%.16f");
-		CALC_SPRINTF(buf,src,DOUBLE_T,dval,"%.19lf");
-		CALC_SPRINTF(buf,src,STR_T,str,"\"%s\"");
+		CALC_SPRINTF(src, INT_T, ival, "%d");
+		CALC_SPRINTF(src, LONG_T, lval, "%ld");
+		CALC_SPRINTF(src, FLOAT_T, fval, "%.16f");
+		CALC_SPRINTF(src, DOUBLE_T, dval, "%.19lf");
+		case STR_T: smart_string_appendc(buf, '"');smart_string_appendl(buf, src->str, src->strlen);smart_string_appendc(buf, '"');break;
 		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
@@ -465,10 +416,10 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 }
 
 void calc_func_print(func_def_f *def) {
-	char names[1024] = { "" };
+	smart_string buf = {NULL, 0, 0};
 
-	strcat(names, def->name);
-	strcat(names, "(");
+	smart_string_appends(&buf, def->name);
+	smart_string_appendc(&buf, '(');
 
 	def->argc = 0;
 	def->minArgc = 0;
@@ -477,12 +428,12 @@ void calc_func_print(func_def_f *def) {
 		register func_args_t *args = def->args;
 		while (args) {
 			if(def->argc) {
-				strcat(names, ", ");
+				smart_string_appends(&buf, ", ");
 			}
-			strcat(names, args->name);
+			smart_string_appends(&buf, args->name);
 			if (args->val.type != VAR_T) {
-				strcat(names, "=");
-				calc_sprintf(names + strlen(names), &args->val);
+				smart_string_appendc(&buf, '=');
+				calc_sprintf(&buf, &args->val);
 			}
 			if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
 				errArgc = def->argc;
@@ -494,18 +445,17 @@ void calc_func_print(func_def_f *def) {
 			args = args->next;
 		}
 	}
-	strcat(names, ")");
-	dprintf("%s", names);
+	smart_string_appendc(&buf, ')');
+	smart_string_0(&buf);
+
+	def->names = buf.c;
+
+	dprintf("%s", def->names);
 	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
 	
 	if (errArgc) {
-		INTERRUPT(__LINE__, "The user function %s the first %d argument not default value", names, errArgc + 1);
-
-		def->names = NULL;
-		return;
+		INTERRUPT(__LINE__, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
 	}
-	
-	def->names = strdup(names);
 }
 
 void calc_func_def(func_def_f *def) {

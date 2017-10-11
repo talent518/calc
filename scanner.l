@@ -5,7 +5,7 @@
 
 #include "calc.h"
 
-inline void unescape(char *p) {
+zend_always_inline void unescape(char *p) {
 	char *q = p;
 	while(*p) {
 		if(*p == '\\') {

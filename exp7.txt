@@ -1,4 +1,4 @@
-func test(a,b,c=1,d=0) {
+func test(a,b,c=1,d=0,en="welcome to china",cn="欢迎来到中国") {
 	for(i=1;i<=100;i++) {
 		sum += i;
 	}
