@@ -1799,11 +1799,13 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 		
 		status = syms->run(ret, syms);
 		if(status != NONE_STATUS) {
+			linenostacktop--;
 			return status;
 		}
 
 		syms = syms->next;
 	}
+	linenostacktop--;
 
 	return NONE_STATUS;
 }
