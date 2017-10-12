@@ -1942,7 +1942,7 @@ void yyerror(const char *s, ...) {
 	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
 	register int i, n, len, lineno;
-	char buf[1024];
+	char buf[256];
 	char linenoformat[8];
 	FILE *fp;
 	for(i=linenostacktop; i>0; i--) {
@@ -1959,9 +1959,12 @@ void yyerror(const char *s, ...) {
 		n = 0;
 		buf[0] = '\0';
 		lineno = max(linenostack[i].lineno-2, 1);
-		while(n<lineno && !feof(fp) && fgets(buf, sizeof(buf), fp)) {
+		while(n<lineno && fgets(buf, sizeof(buf), fp)) {
 			len = strnlen(buf, sizeof(buf));
 			n++;
+			while(n<lineno && !(buf[len-1] == '\r' || buf[len-1] == '\n') && fgets(buf, sizeof(buf), fp)) {
+				len = strnlen(buf, sizeof(buf));
+			}
 		}
 		if(n!=lineno) {
 			goto endecholine;
@@ -1975,13 +1978,21 @@ void yyerror(const char *s, ...) {
 			fprintf(stderr, "\x1b[32m");
 			fprintf(stderr, linenoformat, n);
 			fwrite(buf, 1, len, stderr);
+			while(n<lineno && !(buf[len-1] == '\r' || buf[len-1] == '\n') && fgets(buf, sizeof(buf), fp)) {
+				len = strnlen(buf, sizeof(buf));
+				fwrite(buf, 1, len, stderr);
+			}
 			fprintf(stderr, "\x1b[37m");
 		} else {
 			fprintf(stderr, linenoformat, n);
 			fwrite(buf, 1, len, stderr);
+			while(n<lineno && !(buf[len-1] == '\r' || buf[len-1] == '\n') && fgets(buf, sizeof(buf), fp)) {
+				len = strnlen(buf, sizeof(buf));
+				fwrite(buf, 1, len, stderr);
+			}
 		}
 
-		if(n<lineno && !feof(fp) && fgets(buf, sizeof(buf), fp)) {
+		if(n<lineno && fgets(buf, sizeof(buf), fp)) {
 			len = strnlen(buf, sizeof(buf));
 			n++;
 			goto echoline;
