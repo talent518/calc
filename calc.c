@@ -832,26 +832,35 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->callName, def->argc, def->minArgc, argc);
 		}
 
-		linenostack[++linenostacktop].funcname = def->names;
-		linenostack[linenostacktop].lineno = def->lineno;
-		linenostack[linenostacktop].filename = def->filename;
-
 		HashTable tmpVars = vars;
 		funcArgs = def->args;
 
 		zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 
+		smart_string buf = {NULL, 0, 0};
+
+		smart_string_appends(&buf, def->name);
+		smart_string_appendc(&buf, '(');
+
+		argc = 0;
 		tmpArgs = expr->callArgs;
 		while (funcArgs) {
 			if(tmpArgs) {
 				calc_run_expr(&val, &tmpArgs->val);
+				if(argc) {
+					smart_string_appends(&buf, ", ");
+				}
+				calc_sprintf(&buf, &val);
 				tmpArgs = tmpArgs->next;
 			} else {
 				calc_run_expr(&val, &funcArgs->val);
 			}
 			zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
 			funcArgs = funcArgs->next;
+			argc++;
 		}
+		smart_string_appendc(&buf, ')');
+		smart_string_0(&buf);
 
 		syms = def->syms;
 		while(syms) {
@@ -874,8 +883,13 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			syms = syms->next;
 		}
 
+		linenostack[++linenostacktop].funcname = buf.c;
+		linenostack[linenostacktop].lineno = def->lineno;
+		linenostack[linenostacktop].filename = def->filename;
+
 		calc_run_syms(ret, def->syms);
 
+		free(buf.c);
 		vars.pDestructor = NULL;
 
 		syms = def->syms;

@@ -2,8 +2,8 @@ echo "run include source code", endl;
 
 include "exp4.txt";
 
-func test234() {
-    test_234();
+func test234(a,b=123,c="456") {
+    test_234(a+1);
 }
 
-test234();
+test234(1,"234");
