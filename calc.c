@@ -837,30 +837,39 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 
 		zend_hash_init(&vars, 2, (dtor_func_t)calc_free_vars);
 
-		smart_string buf = {NULL, 0, 0};
+		#ifndef NO_FUNC_RUN_ARGS
+			smart_string buf = {NULL, 0, 0};
 
-		smart_string_appends(&buf, def->name);
-		smart_string_appendc(&buf, '(');
+			smart_string_appends(&buf, def->name);
+			smart_string_appendc(&buf, '(');
 
-		argc = 0;
+			argc = 0;
+		#endif
+
 		tmpArgs = expr->callArgs;
 		while (funcArgs) {
 			if(tmpArgs) {
 				calc_run_expr(&val, &tmpArgs->val);
-				if(argc) {
-					smart_string_appends(&buf, ", ");
-				}
-				calc_sprintf(&buf, &val);
+				#ifndef NO_FUNC_RUN_ARGS
+					if(argc) {
+						smart_string_appends(&buf, ", ");
+					}
+					calc_sprintf(&buf, &val);
+				#endif
 				tmpArgs = tmpArgs->next;
 			} else {
 				calc_run_expr(&val, &funcArgs->val);
 			}
 			zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), &val, sizeof(exp_val_t), NULL);
 			funcArgs = funcArgs->next;
-			argc++;
+			#ifndef NO_FUNC_RUN_ARGS
+				argc++;
+			#endif
 		}
-		smart_string_appendc(&buf, ')');
-		smart_string_0(&buf);
+		#ifndef NO_FUNC_RUN_ARGS
+			smart_string_appendc(&buf, ')');
+			smart_string_0(&buf);
+		#endif
 
 		syms = def->syms;
 		while(syms) {
@@ -883,13 +892,19 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			syms = syms->next;
 		}
 
-		linenostack[++linenostacktop].funcname = buf.c;
+		#ifndef NO_FUNC_RUN_ARGS
+			linenostack[++linenostacktop].funcname = buf.c;
+		#else
+			linenostack[++linenostacktop].funcname = def->names;
+		#endif
 		linenostack[linenostacktop].lineno = def->lineno;
 		linenostack[linenostacktop].filename = def->filename;
 
 		calc_run_syms(ret, def->syms);
 
-		free(buf.c);
+		#ifndef NO_FUNC_RUN_ARGS
+			free(buf.c);
+		#endif
 		vars.pDestructor = NULL;
 
 		syms = def->syms;
