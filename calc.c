@@ -329,21 +329,26 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 
 void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 	register int i;
+#ifdef DEBUG
 	for(i = 0; i<deep; i++) {
 		printf(" ");
 	}
+#endif
 	printf("[");
+#ifdef DEBUG
 	if(args->next) {
 		printf("\n");
 	}
+#endif
 	for (i = 0; i < args->val.ival; i++) {
 		if(args->next) {
 			calc_array_echo(&ptr->array[i], args->next, deep+4);
-			if(i+1 == args->val.ival) {
-				printf("\n");
-			} else {
-				printf(",\n");
+			if(i+1 < args->val.ival) {
+				printf(",");
 			}
+		#ifdef DEBUG
+			printf("\n");
+		#endif
 		} else {
 			if(i) {
 				printf(", ");
@@ -351,11 +356,13 @@ void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 			calc_echo(&ptr->array[i]);
 		}
 	}
+#ifdef DEBUG
 	if(args->next) {
 		for(i = 0; i<deep; i++) {
 			printf(" ");
 		}
 	}
+#endif
 	printf("]");
 }
 
@@ -493,6 +500,7 @@ void calc_run_strdup(exp_val_t *ret, exp_val_t *expr) {
 	ret->type = STR_T;
 	ret->str = strndup(expr->str, expr->strlen);
 	ret->strlen = expr->strlen;
+	ret->run = calc_run_strdup;
 }
 
 void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
@@ -522,6 +530,7 @@ void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_add(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -534,6 +543,7 @@ void calc_run_sub(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_sub(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -546,6 +556,7 @@ void calc_run_mul(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_mul(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -558,6 +569,7 @@ void calc_run_div(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_div(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -570,6 +582,7 @@ void calc_run_mod(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_mod(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -582,6 +595,7 @@ void calc_run_pow(exp_val_t *ret, exp_val_t *expr) {
 	expr->right->run(&right, expr->right);
 	
 	calc_pow(ret, &left, &right);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -593,6 +607,7 @@ void calc_run_abs(exp_val_t *ret, exp_val_t *expr) {
 	expr->left->run(&left, expr->left);
 	
 	calc_abs(ret, &left);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 }
@@ -603,6 +618,7 @@ void calc_run_minus(exp_val_t *ret, exp_val_t *expr) {
 	expr->left->run(&left, expr->left);
 	
 	calc_minus(ret, &left);
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 }
@@ -633,6 +649,7 @@ void calc_run_gt(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval > right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -649,6 +666,7 @@ void calc_run_lt(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval < right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -665,6 +683,7 @@ void calc_run_ge(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval >= right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -681,6 +700,7 @@ void calc_run_le(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval <= right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -697,6 +717,7 @@ void calc_run_eq(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval == right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -713,6 +734,7 @@ void calc_run_ne(exp_val_t *ret, exp_val_t *expr) {
 	
 	ret->type = INT_T;
 	ret->ival = left.dval != right.dval;
+	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
@@ -740,6 +762,7 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 		ret->type = STR_T;
 		ret->str = strndup(ptr->str+val.ival, 1);
 		ret->strlen = 1;
+		ret->run = calc_run_strdup;
 	} else if (ptr->type != ARRAY_T) {
 		yyerror("(warning) variable %s not is a array, type is %s", expr->callName, types[ptr->type - NULL_T]);
 	} else {
@@ -1317,15 +1340,13 @@ void calc_array_init(exp_val_t *ptr, call_args_t *args) {
 	ptr->isref = 0;
 	ptr->arrlen = args->val.ival;
 	ptr->array = (exp_val_t*) malloc(sizeof(exp_val_t) * args->val.ival);
+	ptr->run = calc_run_copy;
 
 	memset(ptr->array, 0, sizeof(exp_val_t) * args->val.ival);
 
 	for (i = 0; i < args->val.ival; i++) {
 		ptr->array[i].run = calc_run_copy;
-	}
-
-	if (args->next) {
-		for (i = 0; i < args->val.ival; i++) {
+		if (args->next) {
 			calc_array_init(&ptr->array[i], args->next);
 		}
 	}

@@ -271,12 +271,7 @@ void calc_conv_str(exp_val_t *dst, exp_val_t *src);
 void calc_free_vars(exp_val_t *expr);
 void calc_array_free(exp_val_t *ptr, call_args_t *args);
 
-#define calc_run_expr(ret, expr) (expr)->run((ret), (expr)); \
-	if((ret)->type == STR_T) { \
-		(ret)->run = calc_run_strdup; \
-	} else { \
-		(ret)->run = calc_run_copy; \
-	}
+#define calc_run_expr(ret, expr) (expr)->run((ret), (expr))
 
 zend_always_inline static void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
