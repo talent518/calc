@@ -15,89 +15,6 @@ int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
-#define CALC_CONV(dst,src,val) \
-	do { \
-		switch((src)->type) { \
-			case INT_T: CALC_CONV_ival2##val(dst, src);break; \
-			case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
-			case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
-			case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
-			case STR_T: { \
-				char *__p = (src)->str; \
-				type_enum_t __type = (dst)->type; \
-				CALC_CONV_str2##val(dst, src); \
-				if(((dst) != (src) && __type == STR_T) || ((dst) == (src) && (dst)->type != STR_T)) { \
-					free(__p); \
-				} \
-				break; \
-			} \
-			default: \
-				if((dst) != (src)) { \
-					if((dst)->type == STR_T) { \
-						free((dst)->str); \
-					} \
-					if((dst)->type != NULL_T) { \
-						memset((dst), 0, sizeof(exp_val_t)); \
-					} \
-				} \
-		} \
-	} while(0)
-
-#define CALC_CONV_ival2ival(dst, src) (dst)->ival = (int)(src)->ival;(dst)->type = INT_T
-#define CALC_CONV_ival2lval(dst, src) (dst)->lval = (long int)(src)->ival;(dst)->type = LONG_T
-#define CALC_CONV_ival2fval(dst, src) (dst)->fval = (float)(src)->ival;(dst)->type = FLOAT_T
-#define CALC_CONV_ival2dval(dst, src) (dst)->dval = (double)(src)->ival;(dst)->type = DOUBLE_T
-#define CALC_CONV_ival2str(dst, src) (dst)->str = (char*)malloc(12);memset((dst)->str, 0, 12);\
-	(dst)->strlen = snprintf((dst)->str, 11, "%d", (src)->ival);(dst)->type = STR_T
-
-#define CALC_CONV_lval2ival(dst, src) (dst)->ival = (int)(src)->lval;(dst)->type = INT_T
-#define CALC_CONV_lval2lval(dst, src) (dst)->lval = (long int)(src)->lval;(dst)->type = LONG_T
-#define CALC_CONV_lval2fval(dst, src) (dst)->fval = (float)(src)->lval;(dst)->type = FLOAT_T
-#define CALC_CONV_lval2dval(dst, src) (dst)->dval = (double)(src)->lval;(dst)->type = DOUBLE_T
-#define CALC_CONV_lval2str(dst, src) (dst)->str = (char*)malloc(22);memset((dst)->str, 0, 22);\
-	(dst)->strlen = snprintf((dst)->str, 21, "%ld", (src)->lval);(dst)->type = STR_T
-
-#define CALC_CONV_fval2ival(dst, src) (dst)->ival = (int)(src)->fval;(dst)->type = INT_T
-#define CALC_CONV_fval2lval(dst, src) (dst)->lval = (long int)(src)->fval;(dst)->type = LONG_T
-#define CALC_CONV_fval2fval(dst, src) (dst)->fval = (float)(src)->fval;(dst)->type = FLOAT_T
-#define CALC_CONV_fval2dval(dst, src) (dst)->dval = (double)(src)->fval;(dst)->type = DOUBLE_T
-#define CALC_CONV_fval2str(dst, src) (dst)->str = (char*)malloc(23);memset((dst)->str, 0, 23);\
-	(dst)->strlen = snprintf((dst)->str, 22, "%f", (src)->fval);(dst)->type = STR_T
-
-#define CALC_CONV_dval2ival(dst, src) (dst)->ival = (int)(src)->dval;(dst)->type = INT_T
-#define CALC_CONV_dval2lval(dst, src) (dst)->lval = (long int)(src)->dval;(dst)->type = LONG_T
-#define CALC_CONV_dval2fval(dst, src) (dst)->fval = (float)(src)->dval;(dst)->type = FLOAT_T
-#define CALC_CONV_dval2dval(dst, src) (dst)->dval = (double)(src)->dval;(dst)->type = DOUBLE_T
-#define CALC_CONV_dval2str(dst, src) (dst)->str = (char*)malloc(33);memset((dst)->str, 0, 33);\
-	(dst)->strlen = snprintf((dst)->str, 32, "%lf", (src)->dval);(dst)->type = STR_T
-
-#define CALC_CONV_str2ival(dst, src) (dst)->ival = 0;sscanf(__p, "%d", &(dst)->ival);(dst)->type = INT_T
-#define CALC_CONV_str2lval(dst, src) (dst)->lval = 0;sscanf(__p, "%ld", &(dst)->lval);(dst)->type = LONG_T
-#define CALC_CONV_str2fval(dst, src) (dst)->fval = 0.0;sscanf(__p, "%f", &(dst)->fval);(dst)->type = FLOAT_T
-#define CALC_CONV_str2dval(dst, src) (dst)->dval = 0.0;sscanf(__p, "%lf", &(dst)->dval);(dst)->type = DOUBLE_T
-#define CALC_CONV_str2str(dst, src) if((dst) != (src)) { \
-		(dst)->str = strndup((src)->str, (src)->strlen); \
-		(dst)->strlen = (src)->strlen; \
-		(dst)->type = STR_T; \
-	}
-
-#define CALC_CONV_op_INIT() exp_val_t val1 = {NULL_T}, val2 = {NULL_T}
-#define CALC_CONV_op(op1, op2, t, val) \
-	do { \
-		if((op1)->type !=t) { \
-			CALC_CONV(&val1, op1, val); \
-			op1 = &val1; \
-		} \
-		if((op2)->type != t) { \
-			CALC_CONV(&val2, op2, val); \
-			op2 = &val2; \
-		} \
-	} while(0)
-
-void calc_conv_str(exp_val_t *dst, exp_val_t *src) {
-	CALC_CONV(dst, src, str);
-}
-
 // dst = op1 + op2
 void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 	CALC_CONV_op_INIT();
@@ -130,16 +47,18 @@ void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 		case STR_T: {
 			CALC_CONV_op(op1, op2, STR_T, str);
 			dst->type = STR_T;
-			dst->strlen = op1->strlen + op2->strlen;
-			dst->str = (char*) malloc(dst->strlen+1);
-			memcpy(dst->str, op1->str, op1->strlen);
-			memcpy(dst->str+op1->strlen, op2->str, op2->strlen);
-			*(dst->str + dst->strlen) = '\0';
+			dst->str = NEW1(string_t);
+			dst->str->gc = 0;
+			dst->str->n = op1->str->n + op2->str->n;
+			dst->str->c = (char*) malloc(dst->str->n+1);
+			memcpy(dst->str->c, op1->str, op1->str->n);
+			memcpy(dst->str->c+op1->str->n, op2->str->c, op2->str->n);
+			*(dst->str->c + dst->str->n) = '\0';
 			if(val1.type == STR_T) {
-				free(val1.str);
+				free_str(val1.str);
 			}
 			if(val2.type == STR_T) {
-				free(val2.str);
+				free_str(val2.str);
 			}
 			break;
 		}
@@ -153,12 +72,12 @@ void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 	
 	if(op1->type == STR_T) {
 		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, op1->str);
+		str2val(&val1, op1->str->c);
 		op1 = &val1;
 	}
 	if(op2->type == STR_T) {
 		exp_val_t val2 = {INT_T, 0};
-		str2val(&val2, op2->str);
+		str2val(&val2, op2->str->c);
 		op2 = &val2;
 	}
 	switch (max(op1->type, op2->type)) {
@@ -196,12 +115,12 @@ void calc_mul(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 	
 	if(op1->type == STR_T) {
 		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, op1->str);
+		str2val(&val1, op1->str->c);
 		op1 = &val1;
 	}
 	if(op2->type == STR_T) {
 		exp_val_t val2 = {INT_T, 0};
-		str2val(&val2, op2->str);
+		str2val(&val2, op2->str->c);
 		op2 = &val2;
 	}
 	switch (max(op1->type, op2->type)) {
@@ -267,7 +186,7 @@ void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 void calc_abs(exp_val_t *dst, exp_val_t *src) {
 	if(src->type == STR_T) {
 		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str);
+		str2val(&val1, src->str->c);
 		src = &val1;
 	}
 	dst->type = src->type;
@@ -286,7 +205,7 @@ void calc_abs(exp_val_t *dst, exp_val_t *src) {
 void calc_minus(exp_val_t *dst, exp_val_t *src) {
 	if(src->type == STR_T) {
 		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str);
+		str2val(&val1, src->str->c);
 		src = &val1;
 	}
 	dst->type = src->type;
@@ -314,7 +233,7 @@ void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 	if(src->type == STR_T) {
 		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str);
+		str2val(&val1, src->str->c);
 		src = &val1;
 	}
 	dst->type = DOUBLE_T;
@@ -327,23 +246,23 @@ void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
 	}
 }
 
-void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
-	register int i;
+void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
+	register int i, hasNext = dim+1<arr->dims;
 #ifdef DEBUG
-	for(i = 0; i<deep; i++) {
+	for(i = 0; i<dim*4; i++) {
 		printf(" ");
 	}
 #endif
 	printf("[");
 #ifdef DEBUG
-	if(args->next) {
+	if(hasNext) {
 		printf("\n");
 	}
 #endif
-	for (i = 0; i < args->val.ival; i++) {
-		if(args->next) {
-			calc_array_echo(&ptr->array[i], args->next, deep+4);
-			if(i+1 < args->val.ival) {
+	for (i = 0; i < arr->args[dim]; i++) {
+		if(hasNext) {
+			calc_array_echo(arr, n*arr->args[dim], ii+i*n, dim+1);
+			if(i+1 < arr->args[dim]) {
 				printf(",");
 			}
 		#ifdef DEBUG
@@ -353,12 +272,12 @@ void calc_array_echo(exp_val_t *ptr, call_args_t *args, int deep) {
 			if(i) {
 				printf(", ");
 			}
-			calc_echo(&ptr->array[i]);
+			calc_echo(&arr->array[ii+i*n]);
 		}
 	}
 #ifdef DEBUG
-	if(args->next) {
-		for(i = 0; i<deep; i++) {
+	if(hasNext) {
+		for(i = 0; i<dim*4; i++) {
 			printf(" ");
 		}
 	}
@@ -379,10 +298,11 @@ void calc_echo(exp_val_t *src) {
 		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
 		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
 		CALC_ECHO_DEF(src, DOUBLE_T, dval, "%.19lf");
-		CALC_ECHO_DEF(src, STR_T, str, "%s");
-		case ARRAY_T:
-			calc_array_echo(src, src->arrayArgs, 0);
+		CALC_ECHO_DEF(src, STR_T, str->c, "%s");
+		case ARRAY_T: {
+			calc_array_echo(src->arr, 1, 0, 0);
 			break;
+		}
 		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
@@ -399,7 +319,7 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 		CALC_SPRINTF(src, LONG_T, lval, "%ld");
 		CALC_SPRINTF(src, FLOAT_T, fval, "%.16f");
 		CALC_SPRINTF(src, DOUBLE_T, dval, "%.19lf");
-		case STR_T: smart_string_appendc(buf, '"');smart_string_appendl(buf, src->str, src->strlen);smart_string_appendc(buf, '"');break;
+		case STR_T: smart_string_appendc(buf, '"');smart_string_appendl(buf, src->str->c, src->str->n);smart_string_appendc(buf, '"');break;
 		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
@@ -499,25 +419,23 @@ void calc_run_copy(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_strdup(exp_val_t *ret, exp_val_t *expr) {
+	expr->str->gc++;
 	ret->type = STR_T;
-	ret->str = strndup(expr->str, expr->strlen);
-	ret->strlen = expr->strlen;
+	ret->str = expr->str;
 	ret->run = calc_run_strdup;
 }
 
 void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t *ptr = NULL;
 	
-	zend_hash_find(&vars, expr->str, strlen(expr->str), (void**)&ptr);
+	zend_hash_find(&vars, expr->var, strlen(expr->var), (void**)&ptr);
 	if (ptr) {
-		if(ptr->type < ARRAY_T || (linenostack[linenostacktop].syms->type == RET_STMT_T && linenostack[linenostacktop].syms->expr->type == VAR_T)) {
-			memcpy(ret, ptr, sizeof(exp_val_t));
-		}
+		memcpy(ret, ptr, sizeof(exp_val_t));
 		if(ptr->type == STR_T) {
-			ret->str = strndup(ptr->str, ptr->strlen);
+			ret->str->gc++;
 		}
 		if(ret->type == ARRAY_T) {
-			ptr->isref = 1;
+			ret->arr->gc++;
 		}
 	} else {
 		ret->type = INT_T;
@@ -528,8 +446,8 @@ void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_add(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -541,8 +459,8 @@ void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_sub(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_sub(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -554,8 +472,8 @@ void calc_run_sub(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_mul(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_mul(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -567,8 +485,8 @@ void calc_run_mul(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_div(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_div(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -580,8 +498,8 @@ void calc_run_div(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_mod(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_mod(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -593,8 +511,8 @@ void calc_run_mod(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_pow(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	calc_pow(ret, &left, &right);
 	ret->run = calc_run_copy;
@@ -604,37 +522,37 @@ void calc_run_pow(exp_val_t *ret, exp_val_t *expr) {
 }
 
 void calc_run_abs(exp_val_t *ret, exp_val_t *expr) {
-	exp_val_t left = {NULL_T};
+	exp_val_t ref = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
+	expr->ref->run(&ref, expr->ref);
 	
-	calc_abs(ret, &left);
+	calc_abs(ret, &ref);
 	ret->run = calc_run_copy;
 	
-	calc_free_expr(&left);
+	calc_free_expr(&ref);
 }
 
 void calc_run_minus(exp_val_t *ret, exp_val_t *expr) {
-	exp_val_t left = {NULL_T};
+	exp_val_t ref = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
+	expr->ref->run(&ref, expr->ref);
 	
-	calc_minus(ret, &left);
+	calc_minus(ret, &ref);
 	ret->run = calc_run_copy;
 	
-	calc_free_expr(&left);
+	calc_free_expr(&ref);
 }
 
 void calc_run_iif(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t cond = {NULL_T};
 
-	expr->cond->run(&cond, expr->cond);
+	expr->defExp->cond->run(&cond, expr->defExp->cond);
 	CALC_CONV((&cond), (&cond), dval);
 
 	if (cond.dval) {
-		expr->left->run(ret, expr->left);
+		expr->defExp->left->run(ret, expr->defExp->left);
 	} else {
-		expr->right->run(ret, expr->right);
+		expr->defExp->right->run(ret, expr->defExp->right);
 	}
 	
 	calc_free_expr(&cond);
@@ -643,8 +561,8 @@ void calc_run_iif(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_gt(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -660,8 +578,8 @@ void calc_run_gt(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_lt(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -677,8 +595,8 @@ void calc_run_lt(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_ge(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -694,8 +612,8 @@ void calc_run_ge(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_le(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -711,8 +629,8 @@ void calc_run_le(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_eq(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -728,8 +646,8 @@ void calc_run_eq(exp_val_t *ret, exp_val_t *expr) {
 void calc_run_ne(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
-	expr->left->run(&left, expr->left);
-	expr->right->run(&right, expr->right);
+	expr->defExp->left->run(&left, expr->defExp->left);
+	expr->defExp->right->run(&right, expr->defExp->right);
 	
 	CALC_CONV(&left, &left, dval);
 	CALC_CONV(&right, &right, dval);
@@ -744,34 +662,36 @@ void calc_run_ne(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t *ptr = NULL, *tmp, val = {NULL_T};
-	register call_args_t *args = expr->callArgs;
+	register call_args_t *args = expr->call->args;
 	
-	zend_hash_find(&vars, expr->callName, strlen(expr->callName), (void**)&ptr);
+	zend_hash_find(&vars, expr->call->name, strlen(expr->call->name), (void**)&ptr);
 	if(!ptr) {
-		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->callName);
+		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name);
 	} else if (ptr->type == STR_T) {
 		str_array_access:
 		if(args->next) {
-			yyerror("An string of %s dimension bounds.\n", expr->callName);
+			yyerror("An string of %s dimension bounds.\n", expr->call->name);
 			return;
 		}
 		calc_run_expr(&val, &args->val);
 		CALC_CONV((&val), (&val), ival);
-		if(val.ival<0 || val.ival>=ptr->strlen) {
-			yyerror("An string of %s index out of bounds.\n", expr->callName);
+		if(val.ival<0 || val.ival>=ptr->str->n) {
+			yyerror("An string of %s index out of bounds.\n", expr->call->name);
 			return;
 		}
 		ret->type = STR_T;
-		ret->str = strndup(ptr->str+val.ival, 1);
-		ret->strlen = 1;
+		CNEW01(ret->str, string_t);
+		ret->str->c = strndup(ptr->str->c+val.ival, 1);
+		ret->str->n = 1;
 		ret->run = calc_run_strdup;
 	} else if (ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->callName, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name, types[ptr->type - NULL_T]);
 	} else {
 		ret->type = INT_T;
 		ret->ival = 0;
 
-		tmp = ptr;
+		exp_val_t val = {NULL_T};
+		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&val, &args->val);
 			CALC_CONV((&val), (&val), ival);
@@ -780,29 +700,27 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 				val.ival = -val.ival;
 			}
 
-			if (val.ival < tmp->arrlen) {
-				tmp = &tmp->array[val.ival];
-				if (tmp->type == STR_T && args->next) {
-					args = args->next;
-					ptr = tmp;
-					goto str_array_access;
-				} else if (tmp->type != ARRAY_T) {
-					if (args->next) {
-						yyerror("An array of %s dimension bounds.\n", expr->callName);
-					} else {
-						calc_run_expr(ret, tmp);
-					}
-					return;
+			if (val.ival >= ptr->arr->args[i]) {
+				yyerror("An array of %s index out of bounds.\n", expr->call->name);
+				return;
+			}
+			ii += val.ival*n;
+			n *= ptr->arr->args[i];
+			if(++i  == ptr->arr->dims) {
+				ptr = &ptr->arr->array[ii];
+				if (args->next) {
+					if(ptr->type == STR_T) goto str_array_access;
+					yyerror("An array of %s dimension bounds.\n", expr->call->name);
+				} else {
+					calc_run_expr(ret, ptr);
 				}
-			} else {
-				yyerror("An array of %s index out of bounds.\n", expr->callName);
 				return;
 			}
 
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency.\n", expr->callName);
+		yyerror("Array %s dimension deficiency.\n", expr->call->name);
 	}
 }
 
@@ -819,9 +737,9 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 		return;
 	}
 	
-	zend_hash_find(&funcs, expr->callName, strlen(expr->callName), (void**)&def);
+	zend_hash_find(&funcs, expr->call->name, strlen(expr->call->name), (void**)&def);
 	if (def) {
-		tmpArgs = expr->callArgs;
+		tmpArgs = expr->call->args;
 		while(tmpArgs) {
 			argc++;
 		
@@ -829,7 +747,7 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 		}
 
 		if (argc > def->argc || argc < def->minArgc) {
-			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->callName, def->argc, def->minArgc, argc);
+			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->call->name, def->argc, def->minArgc, argc);
 		}
 
 		HashTable tmpVars = vars;
@@ -846,9 +764,10 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			argc = 0;
 		#endif
 
-		tmpArgs = expr->callArgs;
+		tmpArgs = expr->call->args;
 		while (funcArgs) {
 			if(tmpArgs) {
+				val.type = NULL_T;
 				calc_run_expr(&val, &tmpArgs->val);
 				#ifndef NO_FUNC_RUN_ARGS
 					if(argc) {
@@ -882,9 +801,9 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			while(tmpArgs) {
 				ptr = NULL;
 
-				zend_hash_find(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), (void**)&ptr);
+				zend_hash_find(&tmpVars, tmpArgs->val.var, strlen(tmpArgs->val.var), (void**)&ptr);
 				if(ptr) {
-					zend_hash_add(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), ptr, sizeof(exp_val_t), NULL);
+					zend_hash_add(&tmpVars, tmpArgs->val.var, strlen(tmpArgs->val.var), ptr, sizeof(exp_val_t), NULL);
 				}
 				tmpArgs = tmpArgs->next;
 			}
@@ -918,12 +837,10 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 			while(tmpArgs) {
 				ptr = NULL;
 
-				zend_hash_find(&vars, tmpArgs->val.str, strlen(tmpArgs->val.str), (void**)&ptr);
+				zend_hash_find(&vars, tmpArgs->val.var, strlen(tmpArgs->val.var), (void**)&ptr);
 				if(ptr) {
-					if(tmpArgs->val.type != ARRAY_T) {
-						zend_hash_update(&tmpVars, tmpArgs->val.str, strlen(tmpArgs->val.str), ptr, sizeof(exp_val_t), NULL);
-					}
-					zend_hash_del(&vars, tmpArgs->val.str, strlen(tmpArgs->val.str));
+					zend_hash_update(&tmpVars, tmpArgs->val.var, strlen(tmpArgs->val.var), ptr, sizeof(exp_val_t), NULL);
+					zend_hash_del(&vars, tmpArgs->val.var, strlen(tmpArgs->val.var));
 				}
 				tmpArgs = tmpArgs->next;
 			}
@@ -937,14 +854,14 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 
 		linenostacktop--;
 	} else {
-		yyerror("undefined user function for %s.\n", expr->callName);
+		yyerror("undefined user function for %s.\n", expr->call->name);
 	}
 }
 
 void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -952,8 +869,8 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -968,8 +885,8 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -977,8 +894,8 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -995,8 +912,8 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1004,8 +921,8 @@ void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1021,8 +938,8 @@ void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1030,8 +947,8 @@ void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1047,8 +964,8 @@ void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1056,8 +973,8 @@ void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1073,8 +990,8 @@ void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1082,8 +999,8 @@ void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1099,8 +1016,8 @@ void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1108,8 +1025,8 @@ void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1125,8 +1042,8 @@ void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1134,8 +1051,8 @@ void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1151,8 +1068,8 @@ void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1160,8 +1077,8 @@ void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1177,8 +1094,8 @@ void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1186,8 +1103,8 @@ void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1203,8 +1120,7 @@ void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1212,8 +1128,8 @@ void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1223,8 +1139,7 @@ void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1232,8 +1147,8 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1243,8 +1158,8 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
 	exp_val_t *ptr;
 	
 	while(tmpArgs) {
@@ -1253,8 +1168,8 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1263,20 +1178,20 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 	ret->type = LONG_T;
 	switch(args->val.type) {
 		case STR_T:
-			ret->lval = (long int) args->val.strlen;
+			ret->lval = (long int) args->val.str->n;
 			break;
 
 		case VAR_T: {
 			ptr = NULL;
 
-			zend_hash_find(&vars, args->val.str, strlen(args->val.str), (void**)&ptr);
+			zend_hash_find(&vars, args->val.var, strlen(args->val.var), (void**)&ptr);
 
 			if(ptr) {
 				if(ptr->type == STR_T) {
-					ret->lval = (long int) ptr->strlen;
+					ret->lval = (long int) ptr->str->n;
 				} else {
 					CALC_CONV(ptr, ptr, str);
-					ret->lval = (long int) ptr->strlen;
+					ret->lval = (long int) ptr->str->n;
 				}
 			}
 			break;
@@ -1284,15 +1199,13 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 		default: {
 			args->val.run(&val, &args->val);
 
-			if(val.type == STR_T) {
-				ret->lval = (long int) val.strlen;
-			} else {
+			if(val.type != STR_T) {
 				CALC_CONV(&val, &val, str);
-				ret->lval = (long int) val.strlen;
 			}
 			
 			if(val.type == STR_T) {
-				free(val.str);
+				ret->lval = (long int) val.str->n;
+				free_str(val.str);
 			}
 
 			break;
@@ -1302,8 +1215,7 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1311,8 +1223,8 @@ void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
@@ -1322,8 +1234,7 @@ void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
 
 void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr) {
 	register unsigned int argc = 0;
-	call_args_t *args = expr->callArgs;
-	register call_args_t *tmpArgs = expr->callArgs;
+	register call_args_t *tmpArgs = expr->call->args;
 	
 	while(tmpArgs) {
 		argc++;
@@ -1331,31 +1242,12 @@ void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
 		return;
 	}
 	
 	srand((unsigned int) microtime());
-}
-
-void calc_array_init(exp_val_t *ptr, call_args_t *args) {
-	register int i;
-
-	ptr->type = ARRAY_T;
-	ptr->isref = 0;
-	ptr->arrlen = args->val.ival;
-	ptr->array = (exp_val_t*) malloc(sizeof(exp_val_t) * args->val.ival);
-	ptr->run = calc_run_copy;
-
-	memset(ptr->array, 0, sizeof(exp_val_t) * args->val.ival);
-
-	for (i = 0; i < args->val.ival; i++) {
-		ptr->array[i].run = calc_run_copy;
-		if (args->next) {
-			calc_array_init(&ptr->array[i], args->next);
-		}
-	}
 }
 
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
@@ -1365,12 +1257,13 @@ status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
 	while (args) {
 		switch (args->val.type) {
 			case STR_T:
-				printf("%s", args->val.str);
+				printf("%s", args->val.str->c);
 				break;
 			case NULL_T:
 				printf("null");
 				break;
 			default: {
+				val.type = NULL_T;
 				calc_run_expr(&val, &args->val);
 				calc_echo(&val);
 				calc_free_expr(&val);
@@ -1452,78 +1345,42 @@ status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms) {
 
 status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t val = {NULL_T};
-	register call_args_t *callArgs = syms->args->next;
-	call_args_t *tmpArgs = (call_args_t*) malloc(sizeof(call_args_t)), *args = tmpArgs;
+	register call_args_t *args = syms->args;
+	DNEW01(arr, array_t);
 
-	while (callArgs) {
-		tmpArgs->val.type = NULL_T;
-		calc_run_expr(&tmpArgs->val, &callArgs->val);
-		CALC_CONV((&tmpArgs->val), (&tmpArgs->val), ival);
-		tmpArgs->val.type = INT_T;
-		if (tmpArgs->val.ival < 0) {
-			tmpArgs->val.ival = -tmpArgs->val.ival;
+	while (args) {
+		calc_run_expr(&val, &args->val);
+		CALC_CONV((&val), (&val), ival);
+		val.type = INT_T;
+		if (val.ival < 0) {
+			val.ival = -val.ival;
 		}
-		if(tmpArgs->val.ival == 0) {
+		if(val.ival == 0) {
 			yyerror("When the array %s is defined, the superscript is not equal to zero.\n", syms->args->val.str);
-			abort();
+			return NONE_STATUS;
 		}
-		callArgs = callArgs->next;
-		if(callArgs) {
-			tmpArgs->next = (call_args_t*) malloc(sizeof(call_args_t));
-			tmpArgs = tmpArgs->next;
-		} else {
-			tmpArgs->next = NULL;
-		}
+		arr->arrlen *= val.ival;
+		arr->args[arr->dims] = val.ival;
+		arr->dims++;
+		args = args->next;
 	}
 
-	tmpArgs->next = NULL;
-	calc_array_init(&val, args);
-	val.arrayArgs = args;
+	CNEW0(arr->array, exp_val_t, arr->arrlen);
 
-	zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+	register unsigned int i;
+	for (i = 0; i < args->val.ival; i++) {
+		arr->array[i].run = calc_run_copy;
+	}
+
+	val.type = ARRAY_T;
+	val.arr = arr;
+	
+	zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), &val, sizeof(exp_val_t), NULL);
 	
 	return NONE_STATUS;
 }
 
 status_enum_t calc_run_sym_null(exp_val_t *ret, func_symbol_t *syms) {
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_inc(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t *ptr = NULL;
-
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		exp_val_t val={INT_T,1};
-		calc_add(ptr, ptr, &val);
-	} else {
-		exp_val_t val;
-		val.type = INT_T;
-		val.ival = 1;
-		val.run = calc_run_copy;
-		
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-				
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_dec(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t *ptr = NULL;
-	
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		exp_val_t val={INT_T,1};
-		calc_sub(ptr, ptr, &val);
-	} else {
-		exp_val_t val;
-		val.type = INT_T;
-		val.ival = -1;
-		val.run = calc_run_copy;
-		
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
 	return NONE_STATUS;
 }
 
@@ -1540,199 +1397,62 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 	exp_val_t *ptr = NULL;
 
 	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
+	zend_hash_find(&vars, syms->var->var, strlen(syms->var->var), (void**)&ptr);
 	if (ptr) {
-		if(ptr->type == STR_T) {
-			free(ptr->str);
-		}
+		calc_free_expr(ptr);
 		memcpy(ptr, &val, sizeof(exp_val_t));
 	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
+		zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), &val, sizeof(exp_val_t), NULL);
 	}
 	
 	return NONE_STATUS;
 }
 
-status_enum_t calc_run_sym_variable_addeq(exp_val_t *ret, func_symbol_t *syms) {
+status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t val = {NULL_T};
 	exp_val_t *ptr = NULL;
 
 	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		calc_add(ptr, ptr, &val);
-		ptr->run = calc_run_copy;
-		calc_free_expr(&val);
-	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_variable_subeq(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t val = {NULL_T};
-	exp_val_t *ptr = NULL;
-
-	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		calc_sub(ptr, ptr, &val);
-		ptr->run = calc_run_copy;
-		calc_free_expr(&val);
-	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_variable_muleq(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t val = {NULL_T};
-	exp_val_t *ptr = NULL;
-
-	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		calc_mul(ptr, ptr, &val);
-		ptr->run = calc_run_copy;
-		calc_free_expr(&val);
-	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t val = {NULL_T};
-	exp_val_t *ptr = NULL;
-
-	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		calc_div(ptr, ptr, &val);
-		ptr->run = calc_run_copy;
-		calc_free_expr(&val);
-	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t val = {NULL_T};
-	exp_val_t *ptr = NULL;
-
-	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->args->val.str, strlen(syms->args->val.str), (void**)&ptr);
-	if (ptr) {
-		calc_mod(ptr, ptr, &val);
-		ptr->run = calc_run_copy;
-		calc_free_expr(&val);
-	} else {
-		zend_hash_update(&vars, syms->args->val.str, strlen(syms->args->val.str), &val, sizeof(exp_val_t), NULL);
-	}
-	
-	return NONE_STATUS;
-}
-
-status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t val = {NULL_T};
-	exp_val_t *ptr = NULL;
-
-	calc_run_expr(&val, syms->val);
-	zend_hash_find(&vars, syms->var->callName, strlen(syms->var->callName), (void**)&ptr);
+	zend_hash_find(&vars, syms->var->call->name, strlen(syms->var->call->name), (void**)&ptr);
 	if (!ptr || ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->callName, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type - NULL_T]);
 	} else {
-		register call_args_t *args = syms->var->callArgs;
+		register call_args_t *args = syms->var->call->args;
 
-		exp_val_t *tmp = ptr, argsVal = {NULL_T};
+		exp_val_t val = {NULL_T};
+		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
-			calc_run_expr(&argsVal, &args->val);
-			CALC_CONV((&argsVal), (&argsVal), ival);
-			argsVal.type = INT_T;
-			if (argsVal.ival < 0) {
-				argsVal.ival = -argsVal.ival;
+			calc_run_expr(&val, &args->val);
+			CALC_CONV((&val), (&val), ival);
+			val.type = INT_T;
+			if (val.ival < 0) {
+				val.ival = -val.ival;
 			}
 
-			if (argsVal.ival < tmp->arrlen) {
-				tmp = &tmp->array[argsVal.ival];
-				if (tmp->type != ARRAY_T) {
-					if (args->next) {
-						yyerror("An array of %s dimension bounds.\n", syms->var->callName);
-						
-						goto breakStmt;
-					} else {
-						if(tmp->type == NULL_T) {
-							switch(syms->type) {
-								case SUBEQ_STMT_T:
-									calc_minus(tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case MULEQ_STMT_T:
-								case DIVEQ_STMT_T:
-								case MODEQ_STMT_T:
-									tmp->type = INT_T;
-									tmp->ival = 0;
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								default:
-									memcpy(tmp, &val, sizeof(exp_val_t));
-									break;
-							}
-						} else {
-							switch(syms->type) {
-								case ADDEQ_STMT_T:
-									calc_add(tmp, tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case SUBEQ_STMT_T:
-									calc_sub(tmp, tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case MULEQ_STMT_T:
-									calc_mul(tmp, tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case DIVEQ_STMT_T:
-									calc_div(tmp, tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								case MODEQ_STMT_T:
-									calc_mod(tmp, tmp, &val);
-									tmp->run = calc_run_copy;
-									calc_free_expr(&val);
-									break;
-								default:
-									if(tmp->type == STR_T) {
-										free(tmp->str);
-									}
-									memcpy(tmp, &val, sizeof(exp_val_t));
-									break;
-							}
-						}
-						
-						return NONE_STATUS;
-					}
-				}
-			} else {
-				yyerror("An array of %s index out of bounds.\n", syms->var->callName);
+			if (val.ival >= ptr->arr->args[i]) {
+				yyerror("An array of %s index out of bounds.\n", syms->var->call->name);
 				goto breakStmt;
+			}
+			ii += val.ival*n;
+			n *= ptr->arr->args[i];
+			if(++i  == ptr->arr->dims) {
+				ptr = &ptr->arr->array[ii];
+				if (args->next) {
+					yyerror("An array of %s dimension bounds.\n", syms->var->call->name);
+					
+					goto breakStmt;
+				} else {
+					calc_free_expr(ptr);
+					memcpy(ptr, &val, sizeof(exp_val_t));
+					
+					return NONE_STATUS;
+				}
 			}
 
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency.\n", syms->var->callName);
+		yyerror("Array %s dimension deficiency.\n", syms->var->call->name);
 	}
 	
 	breakStmt:
@@ -1776,7 +1496,7 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 		return NONE_STATUS;
 	}
 
-	zend_hash_find(syms->ht, cond.str, cond.strlen, (void**)&syms->rsyms);
+	zend_hash_find(syms->ht, cond.str->c, cond.str->n, (void**)&syms->rsyms);
 	calc_free_expr(&cond);
 	
 	return syms->rsyms && calc_run_syms(ret, syms->rsyms) == RET_STATUS ? RET_STATUS : NONE_STATUS;
@@ -1810,31 +1530,30 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	return NONE_STATUS;
 }
 
-void calc_array_free(exp_val_t *ptr, call_args_t *args) {
-	register int i;
-	for (i = 0; i < args->val.ival; i++) {
-		if(ptr->array[i].type == ARRAY_T && args->next) {
-			calc_array_free(&ptr->array[i], args->next);
-		} else {
-			calc_free_expr(&ptr->array[i]);
-		}
+zend_always_inline void calc_array_free(array_t *arr) {
+	register unsigned int i;
+	for (i = 0; i < arr->arrlen; i++) {
+		calc_free_expr(&arr->array[i]);
 	}
-	free(ptr->array);
+	free(arr->array);
+	free(arr);
 }
 
 void calc_free_vars(exp_val_t *expr) {
 	switch (expr->type) {
 		case ARRAY_T: {
-			dprintf("--- FreeVars: ARRAY_T(%d) ---\n", (int)expr->isref);
-			if(!expr->isref) {
-				calc_array_free(expr, expr->arrayArgs);
-				calc_free_args(expr->arrayArgs);
+			dprintf("--- FreeVars: ARRAY_T(%u) ---\n", expr->arr->gc);
+			if(!(expr->arr->gc--)) {
+				calc_array_free(expr->arr);
 			}
 			break;
 		}
 		case STR_T: {
-			dprintf("--- FreeVars: STR_T ---\n");
-			free(expr->str);
+			dprintf("--- FreeVars: STR_T(%u) ---\n", expr->str->gc);
+			if(!(expr->str->gc--)) {
+				free(expr->str->c);
+				free(expr->str);
+			}
 			break;
 		}
 		EMPTY_SWITCH_DEFAULT_CASE()

@@ -15,6 +15,16 @@
 #include "smart_string.h"
 
 #define max(a, b) ((a)>(b) ? (a) : (b))
+#define NEW(t,n) (t*)malloc(sizeof(t)*n)
+#define NEW1(t) NEW(t,1)
+#define CNEW(p,t,n) p=NEW(t,n)
+#define CNEW0(p,t,n) CNEW(p,t,n);memset(p,0,sizeof(t)*n)
+#define CNEW1(p,t) CNEW(p,t,1)
+#define CNEW01(p,t) CNEW0(p,t,1)
+#define DNEW(p,t,n) t *p=NEW(t,n)
+#define DNEW0(p,t,n) DNEW(p,t,n);memset(p,0,sizeof(t)*n)
+#define DNEW1(p,t) DNEW(p,t,1)
+#define DNEW01(p,t) DNEW0(p,t,1)
 
 typedef enum _type_enum_t {
 	NULL_T=0, // 空
@@ -100,6 +110,33 @@ struct _func_def_f {
 	char *filename;
 };
 
+typedef struct {
+	call_enum_f type;
+	unsigned char argc;
+	char *name;
+	call_args_t *args;
+} func_call_t;
+
+typedef struct {
+	char *c;
+	unsigned int n;
+	unsigned int gc; // 垃圾回收计数
+} string_t;
+
+typedef struct {
+	unsigned int gc; // 垃圾回收计数
+	unsigned int arrlen;
+	struct _exp_val_t *array;
+	unsigned int args[16];
+	unsigned char dims; // 维数
+} array_t;
+
+typedef struct {
+	struct _exp_val_t *cond;
+	struct _exp_val_t *left;
+	struct _exp_val_t *right;
+} exp_def_t;
+
 struct _exp_val_t {
 	type_enum_t type;
 	union {
@@ -107,30 +144,16 @@ struct _exp_val_t {
 		long int lval;
 		float fval;
 		double dval;
-		struct {
-			unsigned int strlen;
-			char *str;
-		};
-		struct {
-			call_enum_f callType;
-			unsigned char callArgc;
-			char *callName;
-			call_args_t *callArgs;
-		};
+		char *var;
+		string_t *str;
+		array_t *arr;
+		struct _exp_val_t *ref;
+		func_call_t *call;
+		call_args_t *callArgs;
 		func_def_f *def;
 		func_args_t *defArgs;
 		func_symbol_t *syms;
-		struct {
-			struct _exp_val_t *cond;
-			struct _exp_val_t *left;
-			struct _exp_val_t *right;
-		};
-		struct {
-			char isref;
-			unsigned int arrlen;
-			struct _exp_val_t *array;
-			call_args_t *arrayArgs;
-		};
+		exp_def_t *defExp;
 	};
 	expr_run_func_t run;
 };
@@ -151,11 +174,13 @@ struct _func_args_t {
 struct _func_symbol_t {
 	symbol_enum_t type;
 	union {
-		call_args_t *args;
 		exp_val_t *expr;
 		struct {
 			exp_val_t *var;
-			exp_val_t *val;
+			union {
+				call_args_t *args;
+				exp_val_t *val;
+			};
 		};
 		struct {
 			exp_val_t *cond;
@@ -256,23 +281,14 @@ status_enum_t calc_run_sym_list(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_null(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_inc(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_dec(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_variable_addeq(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_variable_subeq(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_variable_muleq(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_variable_diveq(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_variable_modeq(exp_val_t *ret, func_symbol_t *syms);
-status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms);
+status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms);
 
-void calc_conv_str(exp_val_t *dst, exp_val_t *src);
 #define calc_free_expr calc_free_vars
 void calc_free_vars(exp_val_t *expr);
-void calc_array_free(exp_val_t *ptr, call_args_t *args);
 
 #define calc_run_expr(ret, expr) (expr)->run((ret), (expr))
 
@@ -329,6 +345,85 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 }
 
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
+
+#define free_str(s) if(!(s->gc--)) { \
+		free(s->c); \
+		free(s); \
+	}
+
+#define CALC_CONV(dst,src,val) \
+	do { \
+		switch((src)->type) { \
+			case INT_T: CALC_CONV_ival2##val(dst, src);break; \
+			case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
+			case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
+			case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
+			case STR_T: { \
+				string_t *__p = (src)->str; \
+				type_enum_t __type = (dst)->type; \
+				CALC_CONV_str2##val(dst, src); \
+				if(__type == NULL_T) { \
+					free_str(__p); \
+				} \
+				break; \
+			} \
+			default: \
+				calc_free_expr((dst)); \
+				memset((dst), 0, sizeof(exp_val_t)); \
+				break; \
+		} \
+	} while(0)
+
+#define CALC_CONV_num2str(dst, src, fmt, size, key) (dst)->str = NEW1(string_t);(dst)->str->c = NEW(char,size);memset((dst)->str->c, 0, size);(dst)->str->gc=0;\
+	(dst)->str->n = snprintf((dst)->str->c, size-1, fmt, (src)->key);(dst)->type = STR_T
+
+#define CALC_CONV_ival2ival(dst, src) (dst)->ival = (int)(src)->ival;(dst)->type = INT_T
+#define CALC_CONV_ival2lval(dst, src) (dst)->lval = (long int)(src)->ival;(dst)->type = LONG_T
+#define CALC_CONV_ival2fval(dst, src) (dst)->fval = (float)(src)->ival;(dst)->type = FLOAT_T
+#define CALC_CONV_ival2dval(dst, src) (dst)->dval = (double)(src)->ival;(dst)->type = DOUBLE_T
+#define CALC_CONV_ival2str(dst, src) CALC_CONV_num2str(dst, src, "%d", 12, ival)
+
+#define CALC_CONV_lval2ival(dst, src) (dst)->ival = (int)(src)->lval;(dst)->type = INT_T
+#define CALC_CONV_lval2lval(dst, src) (dst)->lval = (long int)(src)->lval;(dst)->type = LONG_T
+#define CALC_CONV_lval2fval(dst, src) (dst)->fval = (float)(src)->lval;(dst)->type = FLOAT_T
+#define CALC_CONV_lval2dval(dst, src) (dst)->dval = (double)(src)->lval;(dst)->type = DOUBLE_T
+#define CALC_CONV_lval2str(dst, src) CALC_CONV_num2str(dst, src, "%ld", 22, lval)
+
+#define CALC_CONV_fval2ival(dst, src) (dst)->ival = (int)(src)->fval;(dst)->type = INT_T
+#define CALC_CONV_fval2lval(dst, src) (dst)->lval = (long int)(src)->fval;(dst)->type = LONG_T
+#define CALC_CONV_fval2fval(dst, src) (dst)->fval = (float)(src)->fval;(dst)->type = FLOAT_T
+#define CALC_CONV_fval2dval(dst, src) (dst)->dval = (double)(src)->fval;(dst)->type = DOUBLE_T
+#define CALC_CONV_fval2str(dst, src) CALC_CONV_num2str(dst, src, "%f", 23, fval)
+
+#define CALC_CONV_dval2ival(dst, src) (dst)->ival = (int)(src)->dval;(dst)->type = INT_T
+#define CALC_CONV_dval2lval(dst, src) (dst)->lval = (long int)(src)->dval;(dst)->type = LONG_T
+#define CALC_CONV_dval2fval(dst, src) (dst)->fval = (float)(src)->dval;(dst)->type = FLOAT_T
+#define CALC_CONV_dval2dval(dst, src) (dst)->dval = (double)(src)->dval;(dst)->type = DOUBLE_T
+#define CALC_CONV_dval2str(dst, src) CALC_CONV_num2str(dst, src, "%lf", 33, dval)
+
+#define CALC_CONV_str2ival(dst, src) (dst)->ival = 0;sscanf(__p->c, "%d", &(dst)->ival);(dst)->type = INT_T;__type = NULL_T
+#define CALC_CONV_str2lval(dst, src) (dst)->lval = 0;sscanf(__p->c, "%ld", &(dst)->lval);(dst)->type = LONG_T;__type = NULL_T
+#define CALC_CONV_str2fval(dst, src) (dst)->fval = 0.0;sscanf(__p->c, "%f", &(dst)->fval);(dst)->type = FLOAT_T;__type = NULL_T
+#define CALC_CONV_str2dval(dst, src) (dst)->dval = 0.0;sscanf(__p->c, "%lf", &(dst)->dval);(dst)->type = DOUBLE_T;__type = NULL_T
+#define CALC_CONV_str2str(dst, src) if((dst) != (src) && ((dst)->type != STR_T || (dst)->str != (src)->str)) { \
+		(src)->str->gc++; \
+		calc_free_expr((dst)); \
+		(dst)->str = (src)->str; \
+		(dst)->type = STR_T; \
+	}
+
+#define CALC_CONV_op_INIT() exp_val_t val1 = {NULL_T}, val2 = {NULL_T}
+#define CALC_CONV_op(op1, op2, t, val) \
+	do { \
+		if((op1)->type !=t) { \
+			CALC_CONV(&val1, op1, val); \
+			op1 = &val1; \
+		} \
+		if((op2)->type != t) { \
+			CALC_CONV(&val2, op2, val); \
+			op2 = &val2; \
+		} \
+	} while(0)
 
 typedef struct _linenostack {
 	unsigned int lineno;
