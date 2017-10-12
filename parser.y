@@ -8,9 +8,9 @@
 #define CALL_ARGS(args,v) MEMALLOC(args, call_args_t);args->val=v;args->tail=args;args->next=NULL
 #define FUNC_ARGS(args,v) MEMALLOC(args, func_args_t);args->val=v;args->tail=args;args->next=NULL
 #define APPEND(args,val) args->tail->next=val;args->tail=val
-#define STMT(o,t,k,v) MEMALLOC(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->tail=o.syms;o.syms->next=NULL
+#define STMT(o,t,k,v) MEMALLOC(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->filename=curFileName;o.syms->tail=o.syms;o.syms->next=NULL
 
-#define FUNC_MOVE_FREES(ht) //zend_hash_init(ht, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, ht)
+#define FUNC_MOVE_FREES(def) //zend_hash_init(&def->frees, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &def->frees)
 
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
@@ -50,10 +50,10 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=NULL;$$.def->syms=NULL;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=NULL;$$.def->syms=$7.syms;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=$8.syms;FUNC_MOVE_FREES(&$$.def->frees);calc_func_def($$.def); } }
+ | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=NULL;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=NULL;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { MEMALLOC($$.def, func_def_f);$$.def->name = $3.str;$$.def->args=$5.defArgs;$$.def->syms=$8.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
  | calclist INCLUDE STR ';' {
 	FILE *fp = fopen($3.str, "r");

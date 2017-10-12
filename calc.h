@@ -95,7 +95,9 @@ struct _func_def_f {
 	char *names;
 	func_args_t *args;
 	func_symbol_t *syms;
-	HashTable frees;
+	//HashTable frees;
+	unsigned int lineno;
+	char *filename;
 };
 
 struct _exp_val_t {
@@ -164,6 +166,7 @@ struct _func_symbol_t {
 		};
 	};
 	unsigned int lineno;
+	char *filename;
 	struct _func_symbol_t *next;
 	struct _func_symbol_t *tail;
 	sym_run_func_t run;
@@ -330,11 +333,13 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 typedef struct _linenostack {
 	unsigned int lineno;
 	char *funcname;
+	char *filename;
 	func_symbol_t *syms;
 } linenostack_t;
 
 extern linenostack_t linenostack[];
 extern int linenostacktop;
+extern int linenofunc;
 
 void seed_rand();
 void yyerror(const char *s, ...);

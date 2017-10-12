@@ -1,3 +1,9 @@
 echo "run include source code", endl;
+
 include "exp4.txt";
 
+func test234() {
+    test_234();
+}
+
+test234();

@@ -10,7 +10,7 @@ func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
 int exitCode = 0;
 
-linenostack_t linenostack[1024]={{0,"TOP"}};
+linenostack_t linenostack[1024]={{0,"TOP",NULL}};
 int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
@@ -243,7 +243,7 @@ void calc_div(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 		dst->dval = op1->dval / op2->dval;
 	} else {
 		dst->dval = 0.0;
-		yyerror("op1 / op2, op2==0!!!");
+		yyerror("op1 / op2, op2==0!!!\n");
 	}
 }
 
@@ -257,7 +257,7 @@ void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 		dst->lval = op1->lval % op2->lval;
 	} else {
 		dst->lval = 0;
-		yyerror("op1 %% op2, op2==0!!!");
+		yyerror("op1 %% op2, op2==0!!!\n");
 	}
 }
 
@@ -470,6 +470,8 @@ void calc_func_def(func_def_f *def) {
 	calc_func_print(def);
 	dprintf("\n");
 
+	def->filename = curFileName;
+	def->lineno = linenofunc;
 	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, 0, NULL) == FAILURE) {
 		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
 	}
@@ -746,17 +748,17 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 	
 	zend_hash_find(&vars, expr->callName, strlen(expr->callName), (void**)&ptr);
 	if(!ptr) {
-		yyerror("(warning) variable %s not exists, cannot read array or string value.", expr->callName);
+		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->callName);
 	} else if (ptr->type == STR_T) {
 		str_array_access:
 		if(args->next) {
-			yyerror("An string of %s dimension bounds.", expr->callName);
+			yyerror("An string of %s dimension bounds.\n", expr->callName);
 			return;
 		}
 		calc_run_expr(&val, &args->val);
 		CALC_CONV((&val), (&val), ival);
 		if(val.ival<0 || val.ival>=ptr->strlen) {
-			yyerror("An string of %s index out of bounds", expr->callName);
+			yyerror("An string of %s index out of bounds.\n", expr->callName);
 			return;
 		}
 		ret->type = STR_T;
@@ -764,7 +766,7 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 		ret->strlen = 1;
 		ret->run = calc_run_strdup;
 	} else if (ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s", expr->callName, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->callName, types[ptr->type - NULL_T]);
 	} else {
 		ret->type = INT_T;
 		ret->ival = 0;
@@ -786,21 +788,21 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 					goto str_array_access;
 				} else if (tmp->type != ARRAY_T) {
 					if (args->next) {
-						yyerror("An array of %s dimension bounds", expr->callName);
+						yyerror("An array of %s dimension bounds.\n", expr->callName);
 					} else {
 						calc_run_expr(ret, tmp);
 					}
 					return;
 				}
 			} else {
-				yyerror("An array of %s index out of bounds", expr->callName);
+				yyerror("An array of %s index out of bounds.\n", expr->callName);
 				return;
 			}
 
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency", expr->callName);
+		yyerror("Array %s dimension deficiency.\n", expr->callName);
 	}
 }
 
@@ -811,6 +813,11 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 	register call_args_t *tmpArgs = NULL;
 	register func_args_t *funcArgs;
 	register func_symbol_t *syms;
+
+	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
+		yyerror("stack overflow.\n");
+		return;
+	}
 	
 	zend_hash_find(&funcs, expr->callName, strlen(expr->callName), (void**)&def);
 	if (def) {
@@ -822,12 +829,12 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 		}
 
 		if (argc > def->argc || argc < def->minArgc) {
-			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.", expr->callName, def->argc, def->minArgc, argc);
+			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->callName, def->argc, def->minArgc, argc);
 		}
 
-		dprintf("call user function for %s\n", def->names);
-
-		linenostack[++linenostacktop].funcname = expr->callName;
+		linenostack[++linenostacktop].funcname = def->names;
+		linenostack[linenostacktop].lineno = def->lineno;
+		linenostack[linenostacktop].filename = def->filename;
 
 		HashTable tmpVars = vars;
 		funcArgs = def->args;
@@ -901,7 +908,7 @@ void calc_run_func(exp_val_t *ret, exp_val_t *expr) {
 
 		linenostacktop--;
 	} else {
-		yyerror("undefined user function for %s\n", expr->callName);
+		yyerror("undefined user function for %s.\n", expr->callName);
 	}
 }
 
@@ -917,11 +924,9 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -944,11 +949,9 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val1 = {NULL_T}, val2 = {NULL_T};
 
@@ -973,11 +976,9 @@ void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1001,11 +1002,9 @@ void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1029,11 +1028,9 @@ void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1057,11 +1054,9 @@ void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1085,11 +1080,9 @@ void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1113,11 +1106,9 @@ void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1141,11 +1132,9 @@ void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1169,11 +1158,9 @@ void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 
@@ -1197,11 +1184,9 @@ void calc_run_sys_rand(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	ret->type = INT_T;
 	ret->ival = rand();
@@ -1219,11 +1204,9 @@ void calc_run_sys_randf(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	ret->type = DOUBLE_T;
 	ret->dval = (double) rand() / (double) RAND_MAX;
@@ -1242,11 +1225,9 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	exp_val_t val = {NULL_T};
 	
@@ -1302,11 +1283,9 @@ void calc_run_sys_microtime(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	ret->type = DOUBLE_T;
 	ret->dval = microtime();
@@ -1324,11 +1303,9 @@ void calc_run_sys_srand(exp_val_t *ret, exp_val_t *expr) {
 	}
 
 	if (expr->callArgc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.", expr->callName, expr->callArgc, argc);
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->callName, expr->callArgc, argc);
 		return;
 	}
-	
-	dprintf("call system function for %s\n", expr->callName);
 	
 	srand((unsigned int) microtime());
 }
@@ -1458,7 +1435,7 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 			tmpArgs->val.ival = -tmpArgs->val.ival;
 		}
 		if(tmpArgs->val.ival == 0) {
-			yyerror("When the array %s is defined, the superscript is not equal to zero.", syms->args->val.str);
+			yyerror("When the array %s is defined, the superscript is not equal to zero.\n", syms->args->val.str);
 			abort();
 		}
 		callArgs = callArgs->next;
@@ -1639,7 +1616,7 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_expr(&val, syms->val);
 	zend_hash_find(&vars, syms->var->callName, strlen(syms->var->callName), (void**)&ptr);
 	if (!ptr || ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s", syms->var->callName, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->callName, types[ptr->type - NULL_T]);
 	} else {
 		register call_args_t *args = syms->var->callArgs;
 
@@ -1656,7 +1633,7 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 				tmp = &tmp->array[argsVal.ival];
 				if (tmp->type != ARRAY_T) {
 					if (args->next) {
-						yyerror("An array of %s dimension bounds", syms->var->callName);
+						yyerror("An array of %s dimension bounds.\n", syms->var->callName);
 						
 						goto breakStmt;
 					} else {
@@ -1719,14 +1696,14 @@ status_enum_t calc_run_sym_array_set(exp_val_t *ret, func_symbol_t *syms) {
 					}
 				}
 			} else {
-				yyerror("An array of %s index out of bounds", syms->var->callName);
+				yyerror("An array of %s index out of bounds.\n", syms->var->callName);
 				goto breakStmt;
 			}
 
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency", syms->var->callName);
+		yyerror("Array %s dimension deficiency.\n", syms->var->callName);
 	}
 	
 	breakStmt:
@@ -1778,9 +1755,18 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	register status_enum_t status;
+
+	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
+		yyerror("stack overflow.\n");
+		return;
+	}
+
+	linenostack[++linenostacktop].funcname = NULL;
+
 	while (syms) {
 		linenostack[linenostacktop].syms = syms;
 		linenostack[linenostacktop].lineno = syms->lineno;
+		linenostack[linenostacktop].filename = syms->filename;
 		
 		status = syms->run(ret, syms);
 		if(status != NONE_STATUS) {
@@ -1955,9 +1941,62 @@ void yyerror(const char *s, ...) {
 	fprintf(stderr, "===================================\n");
 	fprintf(stderr, "Then error: in file \"%s\" on line %d: \n", curFileName, yylineno);
 
-	register int i;
-	for(i=0; i<=linenostacktop; i++) {
-		fprintf(stderr, "Line %d in user function %s()\n", linenostack[i].lineno, linenostack[i].funcname);
+	register int i, n, len, lineno;
+	char buf[1024];
+	char linenoformat[8];
+	FILE *fp;
+	for(i=linenostacktop; i>0; i--) {
+		if(linenostack[i].funcname) {
+			fprintf(stderr, "%s(%d): %s\n", linenostack[i].filename, linenostack[i].lineno, linenostack[i].funcname);
+		} else {
+			fprintf(stderr, "%s(%d): \n", linenostack[i].filename, linenostack[i].lineno);
+		}
+
+		fp = fopen(linenostack[i].filename, "r");
+		if(!fp) {
+			continue;
+		}
+		n = 0;
+		buf[0] = '\0';
+		lineno = max(linenostack[i].lineno-2, 1);
+		while(n<lineno && !feof(fp) && fgets(buf, sizeof(buf), fp)) {
+			len = strnlen(buf, sizeof(buf));
+			n++;
+		}
+		if(n!=lineno) {
+			goto endecholine;
+		}
+
+		lineno = linenostack[i].lineno+2;
+		sprintf(linenoformat, "%%%dd: ", (int)(log10((double)lineno)+1.0));
+		fprintf(stderr, "\x1b[37m");
+	echoline:
+		if(n == linenostack[i].lineno) {
+			fprintf(stderr, "\x1b[32m");
+			fprintf(stderr, linenoformat, n);
+			fwrite(buf, 1, len, stderr);
+			fprintf(stderr, "\x1b[37m");
+		} else {
+			fprintf(stderr, linenoformat, n);
+			fwrite(buf, 1, len, stderr);
+		}
+
+		if(n<lineno && !feof(fp) && fgets(buf, sizeof(buf), fp)) {
+			len = strnlen(buf, sizeof(buf));
+			n++;
+			goto echoline;
+		} else if(n<lineno && (buf[len-1] == '\r' || buf[len-1] == '\n')) {
+			len = 1;
+			buf[0] = '\n';
+			n++;
+			lineno=n;
+			goto echoline;
+		}
+	
+	endecholine:
+		fprintf(stderr, "\x1b[31m");
+
+		fclose(fp);
 	}
 	fprintf(stderr, "-----------------------------------\n");
 

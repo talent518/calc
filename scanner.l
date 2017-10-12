@@ -5,6 +5,8 @@
 
 #include "calc.h"
 
+int linenofunc;
+
 zend_always_inline void unescape(char *p) {
 	char *q = p;
 	while(*p) {
@@ -162,8 +164,8 @@ zend_always_inline void unescape(char *p) {
 "echo"                                         { return ECHO_T; }
 "list"                                         { return LIST; }
 "clear"                                        { return CLEAR; }
-"func"                                         { return FUNC; }
-"function"                                     { return FUNC; }
+"func"                                         { linenofunc = yylineno;return FUNC; }
+"function"                                     { linenofunc = yylineno;return FUNC; }
 "if"                                           { return IF; }
 "else"                                         { return ELSE; }
 "while"                                        { return WHILE; }
