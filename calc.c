@@ -15,11 +15,202 @@ int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
-#define CALC_CONV_op(op1, op2, val) \
-	do { \
-		CALC_CONV((op1), (op1), val); \
-		CALC_CONV((op2), (op2), val); \
+void calc_conv_to_int(exp_val_t *src) {
+	switch(src->type) {
+		case INT_T: {
+			return;
+		}
+		case LONG_T: {
+			src->ival = src->lval;
+			break;
+		}
+		case FLOAT_T: {
+			src->ival = src->fval;
+			break;
+		}
+		case DOUBLE_T: {
+			src->ival = src->dval;
+			break;
+		}
+		case STR_T: {
+			string_t *str = src->str;
+			
+			src->ival = 0;
+			sscanf(str->c, "%d", &src->ival);
+			
+			free_str(str);
+			break;
+		}
+		default: {
+			calc_free_expr(src);
+			memset(src, 0, sizeof(exp_val_t));
+			break;
+		}
+	}
+	
+	src->type = INT_T;
+	src->run = calc_run_copy;
+}
+
+void calc_conv_to_long(exp_val_t *src) {
+	switch(src->type) {
+		case INT_T: {
+			src->lval = src->ival;
+			break;
+		}
+		case LONG_T: {
+			return;
+		}
+		case FLOAT_T: {
+			src->lval = src->fval;
+			break;
+		}
+		case DOUBLE_T: {
+			src->lval = src->dval;
+			break;
+		}
+		case STR_T: {
+			string_t *str = src->str;
+			
+			src->lval = 0;
+			sscanf(str->c, "%ld", &src->lval);
+			
+			free_str(str);
+			break;
+		}
+		default: {
+			calc_free_expr(src);
+			memset(src, 0, sizeof(exp_val_t));
+			break;
+		}
+	}
+	
+	src->type = LONG_T;
+	src->run = calc_run_copy;
+}
+void calc_conv_to_float(exp_val_t *src) {
+	switch(src->type) {
+		case INT_T: {
+			src->fval = src->ival;
+			break;
+		}
+		case LONG_T: {
+			src->fval = src->fval;
+			break;
+		}
+		case FLOAT_T: {
+			return;
+		}
+		case DOUBLE_T: {
+			src->fval = src->dval;
+			break;
+		}
+		case STR_T: {
+			string_t *str = src->str;
+			
+			src->fval = 0;
+			sscanf(str->c, "%f", &src->fval);
+			
+			free_str(str);
+			break;
+		}
+		default: {
+			calc_free_expr(src);
+			memset(src, 0, sizeof(exp_val_t));
+			break;
+		}
+	}
+	
+	src->type = FLOAT_T;
+	src->run = calc_run_copy;
+}
+void calc_conv_to_double(exp_val_t *src) {
+	switch(src->type) {
+		case INT_T: {
+			src->dval = src->ival;
+			break;
+		}
+		case LONG_T: {
+			src->dval = src->lval;
+			break;
+		}
+		case FLOAT_T: {
+			src->dval = src->fval;
+			break;
+		}
+		case DOUBLE_T: {
+			return;
+		}
+		case STR_T: {
+			string_t *str = src->str;
+			
+			src->dval = 0;
+			sscanf(str->c, "%lf", &src->dval);
+			
+			free_str(str);
+			break;
+		}
+		default: {
+			calc_free_expr(src);
+			memset(src, 0, sizeof(exp_val_t));
+			break;
+		}
+	}
+	
+	src->type = DOUBLE_T;
+	src->run = calc_run_copy;
+}
+
+#define CALC_CONV_num2str(fmt, size, key) do { \
+		CNEW0(str->c, char, size); \
+		str->n = snprintf(str->c, size-1, fmt, &src->key); \
 	} while(0)
+
+void calc_conv_to_str(exp_val_t *src) {
+	DNEW01(str, string_t);
+	
+	switch(src->type) {
+		case INT_T: {
+			CALC_CONV_num2str("%d", 12, ival);
+			break;
+		}
+		case LONG_T: {
+			CALC_CONV_num2str("%ld", 22, lval);
+			break;
+		}
+		case FLOAT_T: {
+			CALC_CONV_num2str("%f", 23, fval);
+			break;
+		}
+		case DOUBLE_T: {
+			CALC_CONV_num2str("%lf", 33, dval);
+			break;
+		}
+		case STR_T: {
+			free(str);
+			return;
+		}
+		default: {
+			calc_free_expr(src);
+			CNEW0(str->c, char, 1);
+			src->str = str;
+			break;
+		}
+	}
+	
+	src->type = STR_T;
+	src->run = calc_run_strdup;
+}
+void calc_conv_to_array(exp_val_t *src) {
+	if(src->type != ARRAY_T) {
+		DNEW01(arr, array_t);
+		CNEW1(arr->array, exp_val_t);
+		memcpy(arr->array, src, sizeof(exp_val_t));
+		arr->arrlen = 1;
+		arr->dims = 1;
+		arr->args[0] = 1;
+	}
+}
 
 void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 	register int i, hasNext = dim+1<arr->dims;
@@ -232,25 +423,25 @@ void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 	ret->run = calc_run_copy;
 	switch (max(left.type, right.type)) {
 		case INT_T: {
-			CALC_CONV_op(&left, &right, ival);
+			CALC_CONV_op(&left, &right, int);
 			ret->ival = left.ival + right.ival;
 			ret->type = INT_T;
 			break;
 		}
 		case LONG_T: {
-			CALC_CONV_op(&left, &right, lval);
+			CALC_CONV_op(&left, &right, long);
 			ret->lval = left.lval + right.lval;
 			ret->type = LONG_T;
 			break;
 		}
 		case FLOAT_T: {
-			CALC_CONV_op(&left, &right, fval);
+			CALC_CONV_op(&left, &right, float);
 			ret->fval = left.fval + right.fval;
 			ret->type = FLOAT_T;
 			break;
 		}
 		case DOUBLE_T: {
-			CALC_CONV_op(&left, &right, dval);
+			CALC_CONV_op(&left, &right, double);
 			ret->dval = left.dval + right.dval;
 			ret->type = DOUBLE_T;
 			break;
@@ -292,37 +483,30 @@ void calc_run_sub(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	if(left.type == STR_T) {
-		string_t *str = left.str;
-		str2val(&left, str->c);
-		free_str(str);
-	}
-	if(right.type == STR_T) {
-		string_t *str = right.str;
-		str2val(&right, str->c);
-		free_str(str);
-	}
+	str2num(left);
+	str2num(right);
+	
 	switch (max(left.type, right.type)) {
 		case INT_T: {
-			CALC_CONV_op(&left, &right, ival);
+			CALC_CONV_op(&left, &right, int);
 			ret->ival = left.ival - right.ival;
 			ret->type = INT_T;
 			break;
 		}
 		case LONG_T: {
-			CALC_CONV_op(&left, &right, lval);
+			CALC_CONV_op(&left, &right, long);
 			ret->lval = left.lval - right.lval;
 			ret->type = LONG_T;
 			break;
 		}
 		case FLOAT_T: {
-			CALC_CONV_op(&left, &right, fval);
+			CALC_CONV_op(&left, &right, float);
 			ret->fval = left.fval - right.fval;
 			ret->type = FLOAT_T;
 			break;
 		}
 		case DOUBLE_T: {
-			CALC_CONV_op(&left, &right, dval);
+			CALC_CONV_op(&left, &right, double);
 			ret->dval = left.dval - right.dval;
 			ret->type = DOUBLE_T;
 			break;
@@ -343,37 +527,30 @@ void calc_run_mul(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	if(left.type == STR_T) {
-		string_t *str = left.str;
-		str2val(&left, str->c);
-		free_str(str);
-	}
-	if(right.type == STR_T) {
-		string_t *str = right.str;
-		str2val(&right, str->c);
-		free_str(str);
-	}
+	str2num(left);
+	str2num(right);
+	
 	switch (max(left.type, right.type)) {
 		case INT_T: {
-			CALC_CONV_op(&left, &right, ival);
+			CALC_CONV_op(&left, &right, int);
 			ret->ival = left.ival * right.ival;
 			ret->type = INT_T;
 			break;
 		}
 		case LONG_T: {
-			CALC_CONV_op(&left, &right, lval);
+			CALC_CONV_op(&left, &right, long);
 			ret->lval = left.lval * right.lval;
 			ret->type = LONG_T;
 			break;
 		}
 		case FLOAT_T: {
-			CALC_CONV_op(&left, &right, fval);
+			CALC_CONV_op(&left, &right, float);
 			ret->fval = left.fval * right.fval;
 			ret->type = FLOAT_T;
 			break;
 		}
 		case DOUBLE_T: {
-			CALC_CONV_op(&left, &right, dval);
+			CALC_CONV_op(&left, &right, double);
 			ret->dval = left.dval * right.dval;
 			ret->type = DOUBLE_T;
 			break;
@@ -394,7 +571,7 @@ void calc_run_div(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV_op(&left, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 
 	ret->type = DOUBLE_T;
 	if(right.dval) {
@@ -417,7 +594,7 @@ void calc_run_mod(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV_op(&left, &right, lval);
+	CALC_CONV_op(&left, &right, long);
 
 	ret->type = LONG_T;
 	if(right.lval) {
@@ -440,7 +617,7 @@ void calc_run_pow(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV_op(&left, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 
 	ret->type = DOUBLE_T;
 	ret->dval = pow(left.dval, right.dval);
@@ -457,11 +634,7 @@ void calc_run_abs(exp_val_t *ret, exp_val_t *expr) {
 	
 	expr->ref->run(&ref, expr->ref);
 	
-	if(ref.type == STR_T) {
-		string_t *str = ref.str;
-		str2val(&ref, str->c);
-		free_str(str);
-	}
+	str2num(ref);
 
 #define CALC_ABS_DEF(t,k) case t: ret->k=(ref.k > 0 ? ref.k : -ref.k);ret->type = t;break
 	switch (ref.type) {
@@ -484,11 +657,7 @@ void calc_run_minus(exp_val_t *ret, exp_val_t *expr) {
 	
 	expr->ref->run(&ref, expr->ref);
 	
-	if(ref.type == STR_T) {
-		string_t *str = ref.str;
-		str2val(&ref, str->c);
-		free_str(str);
-	}
+	str2num(ref);
 
 #define CALC_MINUS_DEF(t,k) case t: ret->k=-ref.k;ret->type = t;break
 	switch (ref.type) {
@@ -509,7 +678,7 @@ void calc_run_iif(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t cond = {NULL_T};
 
 	expr->defExp->cond->run(&cond, expr->defExp->cond);
-	CALC_CONV((&cond), (&cond), dval);
+	calc_conv_to_double((&cond));
 
 	if (cond.dval) {
 		expr->defExp->left->run(ret, expr->defExp->left);
@@ -526,8 +695,7 @@ void calc_run_gt(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval > right.dval;
@@ -543,8 +711,7 @@ void calc_run_lt(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval < right.dval;
@@ -560,8 +727,7 @@ void calc_run_ge(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval >= right.dval;
@@ -577,8 +743,7 @@ void calc_run_le(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval <= right.dval;
@@ -594,8 +759,7 @@ void calc_run_eq(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval == right.dval;
@@ -611,8 +775,7 @@ void calc_run_ne(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	CALC_CONV(&left, &left, dval);
-	CALC_CONV(&right, &right, dval);
+	CALC_CONV_op(&left, &right, double);
 	
 	ret->type = INT_T;
 	ret->ival = left.dval != right.dval;
@@ -636,7 +799,7 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 			return;
 		}
 		calc_run_expr(&val, &args->val);
-		CALC_CONV((&val), (&val), ival);
+		calc_conv_to_int(&val);
 		if(val.ival<0 || val.ival>=ptr->str->n) {
 			yyerror("An string of %s index out of bounds.\n", expr->call->name);
 			return;
@@ -656,7 +819,7 @@ void calc_run_array(exp_val_t *ret, exp_val_t *expr) {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&val, &args->val);
-			CALC_CONV((&val), (&val), ival);
+			calc_conv_to_int(&val);
 			val.type = INT_T;
 			if (val.ival < 0) {
 				val.ival = -val.ival;
@@ -840,11 +1003,7 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 
 	args->val.run(&val, &args->val);
 	
-	if(val.type == STR_T) {
-		string_t *str = val.str;
-		str2val(&val, str->c);
-		free_str(str);
-	}
+	str2num(val);
 
 #define CALC_SQRT_DEF(t,k) case t: ret->dval=sqrt(val.k);ret->type = DOUBLE_T;ret->run = calc_run_copy;break
 	switch (val.type) {
@@ -880,7 +1039,7 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 	args->val.run(&val1, &args->val);
 	args->next->val.run(&val2, &args->next->val);
 	
-	CALC_CONV_op(&val1, &val2, dval);
+	CALC_CONV_op(&val1, &val2, double);
 
 	ret->type = DOUBLE_T;
 	ret->dval = pow(val1.dval, val2.dval);
@@ -908,7 +1067,7 @@ void calc_run_sys_sin(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = sin(val.dval); // 正弦
 	
@@ -934,7 +1093,7 @@ void calc_run_sys_asin(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = asin(val.dval); // 反正弦
 	
@@ -960,7 +1119,7 @@ void calc_run_sys_cos(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = cos(val.dval); // 余弦
 	
@@ -986,7 +1145,7 @@ void calc_run_sys_acos(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = acos(val.dval); // 反余弦
 	
@@ -1012,7 +1171,7 @@ void calc_run_sys_tan(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = tan(val.dval); // 正切
 	
@@ -1038,7 +1197,7 @@ void calc_run_sys_atan(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = atan(val.dval); // 反正切
 	
@@ -1064,7 +1223,7 @@ void calc_run_sys_ctan(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = ctan(val.dval); // 余切
 	
@@ -1090,7 +1249,7 @@ void calc_run_sys_rad(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t val = {NULL_T};
 
 	args->val.run(&val, &args->val);
-	CALC_CONV(&val, &val, dval);
+	calc_conv_to_double(&val);
 	ret->type = DOUBLE_T;
 	ret->dval = val.dval * M_PI / 180.0; // 弧度 - 双精度类型
 	
@@ -1169,7 +1328,7 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 				if(ptr->type == STR_T) {
 					ret->lval = (long int) ptr->str->n;
 				} else {
-					CALC_CONV(ptr, ptr, str);
+					calc_conv_to_str(ptr);
 					ret->lval = (long int) ptr->str->n;
 				}
 			}
@@ -1179,7 +1338,7 @@ void calc_run_sys_strlen(exp_val_t *ret, exp_val_t *expr) {
 			args->val.run(&val, &args->val);
 
 			if(val.type != STR_T) {
-				CALC_CONV(&val, &val, str);
+				calc_conv_to_str(&val);
 			}
 			
 			if(val.type == STR_T) {
@@ -1264,7 +1423,7 @@ status_enum_t calc_run_sym_if(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t cond = {NULL_T};
 
 	calc_run_expr(&cond, syms->cond);
-	CALC_CONV((&cond), (&cond), dval);
+	calc_conv_to_double(&cond);
 
 	return (cond.dval ? calc_run_syms(ret, syms->lsyms) : calc_run_syms(ret, syms->rsyms));
 }
@@ -1273,7 +1432,7 @@ status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t cond = {NULL_T};
 
 	calc_run_expr(&cond, syms->cond);
-	CALC_CONV((&cond), (&cond), dval);
+	calc_conv_to_double(&cond);
 
 	status_enum_t status;
 	while (cond.dval) {
@@ -1283,7 +1442,7 @@ status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
 		}
 
 		calc_run_expr(&cond, syms->cond);
-		CALC_CONV((&cond), (&cond), dval);
+		calc_conv_to_double(&cond);
 	}
 	
 	return NONE_STATUS;
@@ -1300,7 +1459,7 @@ status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
 		}
 
 		calc_run_expr(&cond, syms->cond);
-		CALC_CONV((&cond), (&cond), dval);
+		calc_conv_to_double(&cond);
 	} while (cond.dval);
 	
 	return NONE_STATUS;
@@ -1337,7 +1496,7 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	arr->arrlen = 1;
 	while (args) {
 		calc_run_expr(&val, &args->val);
-		CALC_CONV((&val), (&val), ival);
+		calc_conv_to_int(&val);
 		val.type = INT_T;
 		if (val.ival < 0) {
 			val.ival = -val.ival;
@@ -1411,7 +1570,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&tmp, &args->val);
-			CALC_CONV((&tmp), (&tmp), ival);
+			calc_conv_to_int(&tmp);
 			tmp.type = INT_T;
 			if (tmp.ival < 0) {
 				tmp.ival = -tmp.ival;
@@ -1455,7 +1614,7 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_syms(ret, syms->lsyms);
 	
 	calc_run_expr(&cond, syms->cond);
-	CALC_CONV((&cond), (&cond), dval);
+	calc_conv_to_double(&cond);
 
 	status_enum_t status;
 	while (cond.dval) {
@@ -1467,7 +1626,7 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 		calc_run_syms(ret, syms->rsyms);
 
 		calc_run_expr(&cond, syms->cond);
-		CALC_CONV((&cond), (&cond), dval);
+		calc_conv_to_double(&cond);
 	}
 	
 	return NONE_STATUS;
@@ -1478,7 +1637,7 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 	register status_enum_t status;
 	
 	calc_run_expr(&cond, syms->cond);
-	CALC_CONV((&cond), (&cond), str);
+	calc_conv_to_str(&cond);
 	
 	if(cond.type != STR_T) {
 		return NONE_STATUS;

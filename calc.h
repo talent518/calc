@@ -216,6 +216,15 @@ void zend_hash_destroy_ptr(HashTable *ht);
 
 #define free_frees free
 
+#define CALC_CONV_op(op1, op2, n) calc_conv_to_##n(op1);calc_conv_to_##n(op2)
+
+void calc_conv_to_int(exp_val_t *src);
+void calc_conv_to_long(exp_val_t *src);
+void calc_conv_to_float(exp_val_t *src);
+void calc_conv_to_double(exp_val_t *src);
+void calc_conv_to_str(exp_val_t *src);
+void calc_conv_to_array(exp_val_t *src);
+
 void calc_echo(exp_val_t *src);
 void calc_sprintf(smart_string *buf, exp_val_t *src);
 void calc_print(char *p);
@@ -227,8 +236,8 @@ void calc_free_syms(func_symbol_t *syms);
 void calc_free_func(func_def_f *def);
 
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr); // 复制数值常量
-void calc_run_strdup(exp_val_t *ret, exp_val_t *expr); // 复制字符串常量
-void calc_run_arrdup(exp_val_t *ret, exp_val_t *expr);
+void calc_run_strdup(exp_val_t *ret, exp_val_t *expr); // 引用计数 字符串
+void calc_run_arrdup(exp_val_t *ret, exp_val_t *expr); // 引用计数 数组
 void calc_run_variable(exp_val_t *ret, exp_val_t *expr); // 读取变量
 void calc_run_add(exp_val_t *ret, exp_val_t *expr); // 加法运算
 void calc_run_sub(exp_val_t *ret, exp_val_t *expr); // 减法运算
@@ -284,6 +293,18 @@ void calc_free_vars(exp_val_t *expr);
 
 #define calc_run_expr(ret, expr) (expr)->run((ret), (expr))
 
+#define str2num(val) \
+	if((val).type == STR_T) { \
+		string_t *str = (val).str; \
+		(val).type = INT_T; \
+		 \
+		memset(&(val), 0, sizeof(exp_val_t)); \
+		str2val(&(val), str->c); \
+		 \
+		(val).run = calc_run_copy; \
+		free_str(str); \
+	}
+
 zend_always_inline static void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
 	switch(str[n-1]) {
@@ -323,7 +344,7 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 					val->dval = d;
 				}
 			} else {
-				long int i = atoi(str);
+				long int i = atol(str);
 				if(INT_MIN <= i && i <= INT_MAX) {
 					val->type = INT_T;
 					val->ival = i;
@@ -341,67 +362,6 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 #define free_str(s) if(!(s->gc--)) { \
 		free(s->c); \
 		free(s); \
-	}
-
-#define CALC_CONV(dst,src,val) \
-	do { \
-		switch((src)->type) { \
-			case INT_T: CALC_CONV_ival2##val(dst, src);break; \
-			case LONG_T: CALC_CONV_lval2##val(dst, src);break; \
-			case FLOAT_T: CALC_CONV_fval2##val(dst, src);break; \
-			case DOUBLE_T: CALC_CONV_dval2##val(dst, src);break; \
-			case STR_T: { \
-				string_t *__p = (src)->str; \
-				type_enum_t __type = (dst)->type; \
-				CALC_CONV_str2##val(dst, src); \
-				if(__type == NULL_T) { \
-					free_str(__p); \
-				} \
-				break; \
-			} \
-			default: \
-				calc_free_expr((dst)); \
-				memset((dst), 0, sizeof(exp_val_t)); \
-				break; \
-		} \
-	} while(0)
-
-#define CALC_CONV_num2str(dst, src, fmt, size, key) (dst)->str = NEW1(string_t);(dst)->str->c = NEW(char,size);memset((dst)->str->c, 0, size);(dst)->str->gc=0;\
-	(dst)->str->n = snprintf((dst)->str->c, size-1, fmt, (src)->key);(dst)->type = STR_T
-
-#define CALC_CONV_ival2ival(dst, src) (dst)->ival = (int)(src)->ival;(dst)->type = INT_T
-#define CALC_CONV_ival2lval(dst, src) (dst)->lval = (long int)(src)->ival;(dst)->type = LONG_T
-#define CALC_CONV_ival2fval(dst, src) (dst)->fval = (float)(src)->ival;(dst)->type = FLOAT_T
-#define CALC_CONV_ival2dval(dst, src) (dst)->dval = (double)(src)->ival;(dst)->type = DOUBLE_T
-#define CALC_CONV_ival2str(dst, src) CALC_CONV_num2str(dst, src, "%d", 12, ival)
-
-#define CALC_CONV_lval2ival(dst, src) (dst)->ival = (int)(src)->lval;(dst)->type = INT_T
-#define CALC_CONV_lval2lval(dst, src) (dst)->lval = (long int)(src)->lval;(dst)->type = LONG_T
-#define CALC_CONV_lval2fval(dst, src) (dst)->fval = (float)(src)->lval;(dst)->type = FLOAT_T
-#define CALC_CONV_lval2dval(dst, src) (dst)->dval = (double)(src)->lval;(dst)->type = DOUBLE_T
-#define CALC_CONV_lval2str(dst, src) CALC_CONV_num2str(dst, src, "%ld", 22, lval)
-
-#define CALC_CONV_fval2ival(dst, src) (dst)->ival = (int)(src)->fval;(dst)->type = INT_T
-#define CALC_CONV_fval2lval(dst, src) (dst)->lval = (long int)(src)->fval;(dst)->type = LONG_T
-#define CALC_CONV_fval2fval(dst, src) (dst)->fval = (float)(src)->fval;(dst)->type = FLOAT_T
-#define CALC_CONV_fval2dval(dst, src) (dst)->dval = (double)(src)->fval;(dst)->type = DOUBLE_T
-#define CALC_CONV_fval2str(dst, src) CALC_CONV_num2str(dst, src, "%f", 23, fval)
-
-#define CALC_CONV_dval2ival(dst, src) (dst)->ival = (int)(src)->dval;(dst)->type = INT_T
-#define CALC_CONV_dval2lval(dst, src) (dst)->lval = (long int)(src)->dval;(dst)->type = LONG_T
-#define CALC_CONV_dval2fval(dst, src) (dst)->fval = (float)(src)->dval;(dst)->type = FLOAT_T
-#define CALC_CONV_dval2dval(dst, src) (dst)->dval = (double)(src)->dval;(dst)->type = DOUBLE_T
-#define CALC_CONV_dval2str(dst, src) CALC_CONV_num2str(dst, src, "%lf", 33, dval)
-
-#define CALC_CONV_str2ival(dst, src) (dst)->ival = 0;sscanf(__p->c, "%d", &(dst)->ival);(dst)->type = INT_T;__type = NULL_T
-#define CALC_CONV_str2lval(dst, src) (dst)->lval = 0;sscanf(__p->c, "%ld", &(dst)->lval);(dst)->type = LONG_T;__type = NULL_T
-#define CALC_CONV_str2fval(dst, src) (dst)->fval = 0.0;sscanf(__p->c, "%f", &(dst)->fval);(dst)->type = FLOAT_T;__type = NULL_T
-#define CALC_CONV_str2dval(dst, src) (dst)->dval = 0.0;sscanf(__p->c, "%lf", &(dst)->dval);(dst)->type = DOUBLE_T;__type = NULL_T
-#define CALC_CONV_str2str(dst, src) if((dst) != (src) && ((dst)->type != STR_T || (dst)->str != (src)->str)) { \
-		(src)->str->gc++; \
-		calc_free_expr((dst)); \
-		(dst)->str = (src)->str; \
-		(dst)->type = STR_T; \
 	}
 
 typedef struct _linenostack {
