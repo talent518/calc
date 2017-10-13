@@ -78,9 +78,9 @@ calclist:
 			yylineno = 1;
 			tailWrapStack = _wrap_stack;
 			includeDeep++;
-			dprintf("--------------------------\n");
-			dprintf("END INPUT: %s\n", $3.str);
 			dprintf("==========================\n");
+			dprintf("BEGIN INPUT: %s\n", $3.str->c);
+			dprintf("--------------------------\n");
 			yypush_buffer_state(yy_create_buffer(fp, 16384));
 		} else {
 			yyerror("File \"%s\" already included!\n", $3.str->c);
