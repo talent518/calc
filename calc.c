@@ -15,236 +15,11 @@ int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
-// dst = op1 + op2
-void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	
-	switch (max(op1->type, op2->type)) {
-		case INT_T: {
-			CALC_CONV_op(op1, op2, INT_T, ival);
-			dst->ival = op1->ival + op2->ival;
-			dst->type = INT_T;
-			break;
-		}
-		case LONG_T: {
-			CALC_CONV_op(op1, op2, LONG_T, lval);
-			dst->lval = op1->lval + op2->lval;
-			dst->type = LONG_T;
-			break;
-		}
-		case FLOAT_T: {
-			CALC_CONV_op(op1, op2, FLOAT_T, fval);
-			dst->fval = op1->fval + op2->fval;
-			dst->type = FLOAT_T;
-			break;
-		}
-		case DOUBLE_T: {
-			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
-			dst->dval = op1->dval + op2->dval;
-			dst->type = DOUBLE_T;
-			break;
-		}
-		case STR_T: {
-			CALC_CONV_op(op1, op2, STR_T, str);
-			dst->type = STR_T;
-			dst->str = NEW1(string_t);
-			dst->str->gc = 0;
-			dst->str->n = op1->str->n + op2->str->n;
-			dst->str->c = (char*) malloc(dst->str->n+1);
-			memcpy(dst->str->c, op1->str->c, op1->str->n);
-			memcpy(dst->str->c+op1->str->n, op2->str->c, op2->str->n);
-			*(dst->str->c + dst->str->n) = '\0';
-			if(val1.type == STR_T) {
-				free_str(val1.str);
-			}
-			if(val2.type == STR_T) {
-				free_str(val2.str);
-			}
-			break;
-		}
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-
-// dst = op1 - op2
-void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	
-	if(op1->type == STR_T) {
-		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, op1->str->c);
-		op1 = &val1;
-	}
-	if(op2->type == STR_T) {
-		exp_val_t val2 = {INT_T, 0};
-		str2val(&val2, op2->str->c);
-		op2 = &val2;
-	}
-	switch (max(op1->type, op2->type)) {
-		case INT_T: {
-			CALC_CONV_op(op1, op2, INT_T, ival);
-			dst->ival = op1->ival - op2->ival;
-			dst->type = INT_T;
-			break;
-		}
-		case LONG_T: {
-			CALC_CONV_op(op1, op2, LONG_T, lval);
-			dst->lval = op1->lval - op2->lval;
-			dst->type = LONG_T;
-			break;
-		}
-		case FLOAT_T: {
-			CALC_CONV_op(op1, op2, FLOAT_T, fval);
-			dst->fval = op1->fval - op2->fval;
-			dst->type = FLOAT_T;
-			break;
-		}
-		case DOUBLE_T: {
-			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
-			dst->dval = op1->dval - op2->dval;
-			dst->type = DOUBLE_T;
-			break;
-		}
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-
-// dst = op1 * op2
-void calc_mul(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	
-	if(op1->type == STR_T) {
-		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, op1->str->c);
-		op1 = &val1;
-	}
-	if(op2->type == STR_T) {
-		exp_val_t val2 = {INT_T, 0};
-		str2val(&val2, op2->str->c);
-		op2 = &val2;
-	}
-	switch (max(op1->type, op2->type)) {
-		case INT_T: {
-			CALC_CONV_op(op1, op2, INT_T, ival);
-			dst->ival = op1->ival * op2->ival;
-			dst->type = INT_T;
-			break;
-		}
-		case LONG_T: {
-			CALC_CONV_op(op1, op2, LONG_T, lval);
-			dst->lval = op1->lval * op2->lval;
-			dst->type = LONG_T;
-			break;
-		}
-		case FLOAT_T: {
-			CALC_CONV_op(op1, op2, FLOAT_T, fval);
-			dst->fval = op1->fval * op2->fval;
-			dst->type = FLOAT_T;
-			break;
-		}
-		case DOUBLE_T: {
-			CALC_CONV_op(op1, op2, DOUBLE_T, dval);
-			dst->dval = op1->dval * op2->dval;
-			dst->type = DOUBLE_T;
-			break;
-		}
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-
-// dst = op1 / op2
-void calc_div(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	CALC_CONV_op(op1, op2, DOUBLE_T, dval);
-
-	dst->type = DOUBLE_T;
-	if(op2->dval) {
-		dst->dval = op1->dval / op2->dval;
-	} else {
-		dst->dval = 0.0;
-		yyerror("op1 / op2, op2==0!!!\n");
-	}
-}
-
-// dst = op1 % op2
-void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	CALC_CONV_op(op1, op2, LONG_T, lval);
-
-	dst->type = LONG_T;
-	if(op2->lval) {
-		dst->lval = op1->lval % op2->lval;
-	} else {
-		dst->lval = 0;
-		yyerror("op1 %% op2, op2==0!!!\n");
-	}
-}
-
-#define CALC_ABS_DEF(dst,src,type,val) case type: dst->val=(src->val > 0 ? src->val : -src->val);break
-
-// dst = |src|
-void calc_abs(exp_val_t *dst, exp_val_t *src) {
-	if(src->type == STR_T) {
-		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str->c);
-		src = &val1;
-	}
-	dst->type = src->type;
-	switch (src->type) {
-		CALC_ABS_DEF(dst, src,INT_T,ival);
-		CALC_ABS_DEF(dst,src,LONG_T,lval);
-		CALC_ABS_DEF(dst,src,FLOAT_T,fval);
-		CALC_ABS_DEF(dst,src,DOUBLE_T,dval);
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-
-#define CALC_MINUS_DEF(dst,src,type,val) case type: dst->val=-src->val;break
-
-// dst = -src
-void calc_minus(exp_val_t *dst, exp_val_t *src) {
-	if(src->type == STR_T) {
-		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str->c);
-		src = &val1;
-	}
-	dst->type = src->type;
-	switch (src->type) {
-		CALC_MINUS_DEF(dst, src, INT_T, ival);
-		CALC_MINUS_DEF(dst, src, LONG_T, lval);
-		CALC_MINUS_DEF(dst, src, FLOAT_T, fval);
-		CALC_MINUS_DEF(dst, src, DOUBLE_T, dval);
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-
-// dst = pow(op1, op2)
-void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
-	CALC_CONV_op_INIT();
-	CALC_CONV_op(op1, op2, DOUBLE_T, dval);
-
-	dst->type = DOUBLE_T;
-	dst->dval = pow(op1->dval, op2->dval);
-}
-
-#define CALC_SQRT_DEF(dst,src,type,val) case type: dst->dval=sqrt(src->val);break
-
-// dst = sqrt(src)
-void calc_sqrt(exp_val_t *dst, exp_val_t *src) {
-	if(src->type == STR_T) {
-		exp_val_t val1 = {INT_T, 0};
-		str2val(&val1, src->str->c);
-		src = &val1;
-	}
-	dst->type = DOUBLE_T;
-	switch (src->type) {
-		CALC_SQRT_DEF(dst, src, INT_T, ival);
-		CALC_SQRT_DEF(dst,src,LONG_T,lval);
-		CALC_SQRT_DEF(dst,src,FLOAT_T,fval);
-		CALC_SQRT_DEF(dst,src,DOUBLE_T,dval);
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
+#define CALC_CONV_op(op1, op2, val) \
+	do { \
+		CALC_CONV((op1), (op1), val); \
+		CALC_CONV((op2), (op2), val); \
+	} while(0)
 
 void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 	register int i, hasNext = dim+1<arr->dims;
@@ -446,101 +221,285 @@ void calc_run_variable(exp_val_t *ret, exp_val_t *expr) {
 	}
 }
 
+// left + right
 void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
-	
-	calc_add(ret, &left, &right);
+
+
 	ret->run = calc_run_copy;
+	switch (max(left.type, right.type)) {
+		case INT_T: {
+			CALC_CONV_op(&left, &right, ival);
+			ret->ival = left.ival + right.ival;
+			ret->type = INT_T;
+			break;
+		}
+		case LONG_T: {
+			CALC_CONV_op(&left, &right, lval);
+			ret->lval = left.lval + right.lval;
+			ret->type = LONG_T;
+			break;
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(&left, &right, fval);
+			ret->fval = left.fval + right.fval;
+			ret->type = FLOAT_T;
+			break;
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(&left, &right, dval);
+			ret->dval = left.dval + right.dval;
+			ret->type = DOUBLE_T;
+			break;
+		}
+		case STR_T: {
+			ret->run = calc_run_strdup;
+			CALC_CONV_op(&left, &right, str);
+			if(left.type != STR_T) {
+				right.str->gc++;
+				memcpy(ret, &right, sizeof(exp_val_t));
+				break;
+			}
+			if(right.type != STR_T) {
+				left.str->gc++;
+				memcpy(ret, &left, sizeof(exp_val_t));
+				break;
+			}
+			ret->type = STR_T;
+			ret->str = NEW1(string_t);
+			ret->str->gc = 0;
+			ret->str->n = left.str->n + right.str->n;
+			ret->str->c = (char*) malloc(ret->str->n+1);
+			memcpy(ret->str->c, left.str->c, left.str->n);
+			memcpy(ret->str->c+left.str->n, right.str->c, right.str->n);
+			*(ret->str->c + ret->str->n) = '\0';
+			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// left - right
 void calc_run_sub(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	calc_sub(ret, &left, &right);
+	if(left.type == STR_T) {
+		string_t *str = left.str;
+		str2val(&left, str->c);
+		free_str(str);
+	}
+	if(right.type == STR_T) {
+		string_t *str = right.str;
+		str2val(&right, str->c);
+		free_str(str);
+	}
+	switch (max(left.type, right.type)) {
+		case INT_T: {
+			CALC_CONV_op(&left, &right, ival);
+			ret->ival = left.ival - right.ival;
+			ret->type = INT_T;
+			break;
+		}
+		case LONG_T: {
+			CALC_CONV_op(&left, &right, lval);
+			ret->lval = left.lval - right.lval;
+			ret->type = LONG_T;
+			break;
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(&left, &right, fval);
+			ret->fval = left.fval - right.fval;
+			ret->type = FLOAT_T;
+			break;
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(&left, &right, dval);
+			ret->dval = left.dval - right.dval;
+			ret->type = DOUBLE_T;
+			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// left * right
 void calc_run_mul(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	calc_mul(ret, &left, &right);
+	if(left.type == STR_T) {
+		string_t *str = left.str;
+		str2val(&left, str->c);
+		free_str(str);
+	}
+	if(right.type == STR_T) {
+		string_t *str = right.str;
+		str2val(&right, str->c);
+		free_str(str);
+	}
+	switch (max(left.type, right.type)) {
+		case INT_T: {
+			CALC_CONV_op(&left, &right, ival);
+			ret->ival = left.ival * right.ival;
+			ret->type = INT_T;
+			break;
+		}
+		case LONG_T: {
+			CALC_CONV_op(&left, &right, lval);
+			ret->lval = left.lval * right.lval;
+			ret->type = LONG_T;
+			break;
+		}
+		case FLOAT_T: {
+			CALC_CONV_op(&left, &right, fval);
+			ret->fval = left.fval * right.fval;
+			ret->type = FLOAT_T;
+			break;
+		}
+		case DOUBLE_T: {
+			CALC_CONV_op(&left, &right, dval);
+			ret->dval = left.dval * right.dval;
+			ret->type = DOUBLE_T;
+			break;
+		}
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// left / right
 void calc_run_div(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	calc_div(ret, &left, &right);
+	CALC_CONV_op(&left, &right, dval);
+
+	ret->type = DOUBLE_T;
+	if(right.dval) {
+		ret->dval = left.dval / right.dval;
+	} else {
+		ret->dval = 0.0;
+		yyerror("op1 / op2, op2==0!!!\n");
+	}
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// left % right
 void calc_run_mod(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	calc_mod(ret, &left, &right);
+	CALC_CONV_op(&left, &right, lval);
+
+	ret->type = LONG_T;
+	if(right.lval) {
+		ret->lval = left.lval % right.lval;
+	} else {
+		ret->lval = 0;
+		yyerror("op1 %% op2, op2==0!!!\n");
+	}
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// left ^ right
 void calc_run_pow(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t left = {NULL_T}, right = {NULL_T};
 	
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 	
-	calc_pow(ret, &left, &right);
+	CALC_CONV_op(&left, &right, dval);
+
+	ret->type = DOUBLE_T;
+	ret->dval = pow(left.dval, right.dval);
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&left);
 	calc_free_expr(&right);
 }
 
+// |ref|
 void calc_run_abs(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t ref = {NULL_T};
 	
 	expr->ref->run(&ref, expr->ref);
 	
-	calc_abs(ret, &ref);
+	if(ref.type == STR_T) {
+		string_t *str = ref.str;
+		str2val(&ref, str->c);
+		free_str(str);
+	}
+
+#define CALC_ABS_DEF(t,k) case t: ret->k=(ref.k > 0 ? ref.k : -ref.k);ret->type = t;break
+	switch (ref.type) {
+		CALC_ABS_DEF(INT_T, ival);
+		CALC_ABS_DEF(LONG_T, lval);
+		CALC_ABS_DEF(FLOAT_T, fval);
+		CALC_ABS_DEF(DOUBLE_T, dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
+#undef CALC_ABS_DEF
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&ref);
 }
 
+// -ref
 void calc_run_minus(exp_val_t *ret, exp_val_t *expr) {
 	exp_val_t ref = {NULL_T};
 	
 	expr->ref->run(&ref, expr->ref);
 	
-	calc_minus(ret, &ref);
+	if(ref.type == STR_T) {
+		string_t *str = ref.str;
+		str2val(&ref, str->c);
+		free_str(str);
+	}
+
+#define CALC_MINUS_DEF(t,k) case t: ret->k=-ref.k;ret->type = t;break
+	switch (ref.type) {
+		CALC_MINUS_DEF(INT_T, ival);
+		CALC_MINUS_DEF(LONG_T, lval);
+		CALC_MINUS_DEF(FLOAT_T, fval);
+		CALC_MINUS_DEF(DOUBLE_T, dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
+#undef CALC_MINUS_DEF
+
 	ret->run = calc_run_copy;
 	
 	calc_free_expr(&ref);
@@ -881,8 +840,22 @@ void calc_run_sys_sqrt(exp_val_t *ret, exp_val_t *expr) {
 
 	args->val.run(&val, &args->val);
 	
-	calc_sqrt(ret, &val);
-	
+	if(val.type == STR_T) {
+		string_t *str = val.str;
+		str2val(&val, str->c);
+		free_str(str);
+	}
+
+#define CALC_SQRT_DEF(t,k) case t: ret->dval=sqrt(val.k);ret->type = DOUBLE_T;ret->run = calc_run_copy;break
+	switch (val.type) {
+		CALC_SQRT_DEF(INT_T, ival);
+		CALC_SQRT_DEF(LONG_T, lval);
+		CALC_SQRT_DEF(FLOAT_T, fval);
+		CALC_SQRT_DEF(DOUBLE_T, dval);
+		EMPTY_SWITCH_DEFAULT_CASE()
+	}
+#undef CALC_SQRT_DEF
+
 	calc_free_expr(&val);
 }
 
@@ -907,7 +880,10 @@ void calc_run_sys_pow(exp_val_t *ret, exp_val_t *expr) {
 	args->val.run(&val1, &args->val);
 	args->next->val.run(&val2, &args->next->val);
 	
-	calc_pow(ret, &val1, &val2);
+	CALC_CONV_op(&val1, &val2, dval);
+
+	ret->type = DOUBLE_T;
+	ret->dval = pow(val1.dval, val2.dval);
 	
 	calc_free_expr(&val1);
 	calc_free_expr(&val2);

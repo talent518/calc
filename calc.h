@@ -216,15 +216,6 @@ void zend_hash_destroy_ptr(HashTable *ht);
 
 #define free_frees free
 
-void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_sub(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_mul(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_div(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_mod(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_abs(exp_val_t *dst, exp_val_t *src);
-void calc_minus(exp_val_t *dst, exp_val_t *src);
-void calc_pow(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2);
-void calc_sqrt(exp_val_t *dst, exp_val_t *src);
 void calc_echo(exp_val_t *src);
 void calc_sprintf(smart_string *buf, exp_val_t *src);
 void calc_print(char *p);
@@ -412,19 +403,6 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 		(dst)->str = (src)->str; \
 		(dst)->type = STR_T; \
 	}
-
-#define CALC_CONV_op_INIT() exp_val_t val1 = {NULL_T}, val2 = {NULL_T}
-#define CALC_CONV_op(op1, op2, t, val) \
-	do { \
-		if((op1)->type !=t) { \
-			CALC_CONV(&val1, op1, val); \
-			op1 = &val1; \
-		} \
-		if((op2)->type != t) { \
-			CALC_CONV(&val2, op2, val); \
-			op2 = &val2; \
-		} \
-	} while(0)
 
 typedef struct _linenostack {
 	unsigned int lineno;

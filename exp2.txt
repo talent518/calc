@@ -134,7 +134,7 @@ echo "RAND_MAX = ", RAND_MAX, endl;
 echo "rand() = ", rand(), endl;
 echo "randf() = ", randf(), endl;
 
-function multiAngleStar(n) {
+function luosi() {
 	radius = 20;
 	radius2 = radius*2;
 	array arr[radius2][radius2];
@@ -169,7 +169,7 @@ function multiAngleStar(n) {
 	}
 }
 
-multiAngleStar(5);
+luosi();
 
 function assign2() {
 	array arr[2];
