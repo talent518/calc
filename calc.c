@@ -51,7 +51,7 @@ void calc_add(exp_val_t *dst, exp_val_t *op1, exp_val_t *op2) {
 			dst->str->gc = 0;
 			dst->str->n = op1->str->n + op2->str->n;
 			dst->str->c = (char*) malloc(dst->str->n+1);
-			memcpy(dst->str->c, op1->str, op1->str->n);
+			memcpy(dst->str->c, op1->str->c, op1->str->n);
 			memcpy(dst->str->c+op1->str->n, op2->str->c, op2->str->n);
 			*(dst->str->c + dst->str->n) = '\0';
 			if(val1.type == STR_T) {
@@ -259,10 +259,13 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 		printf("\n");
 	}
 #endif
-	for (i = 0; i < arr->args[dim]; i++) {
+
+	register unsigned int dims = arr->args[arr->dims-1-dim], nii;
+	for (i = 0; i < dims; i++) {
+		nii = ii+i*n;
 		if(hasNext) {
-			calc_array_echo(arr, n*arr->args[dim], ii+i*n, dim+1);
-			if(i+1 < arr->args[dim]) {
+			calc_array_echo(arr, n*dims, nii, dim+1);
+			if(i+1 < dims) {
 				printf(",");
 			}
 		#ifdef DEBUG
@@ -272,7 +275,7 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 			if(i) {
 				printf(", ");
 			}
-			calc_echo(&arr->array[ii+i*n]);
+			calc_echo(&arr->array[nii]);
 		}
 	}
 #ifdef DEBUG
@@ -1343,11 +1346,19 @@ status_enum_t calc_run_sym_clear(exp_val_t *ret, func_symbol_t *syms) {
 	return NONE_STATUS;
 }
 
+void calc_run_arrdup(exp_val_t *ret, exp_val_t *expr) {
+	expr->arr->gc++;
+	ret->type = ARRAY_T;
+	ret->arr = expr->arr;
+	ret->run = calc_run_strdup;
+}
+
 status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t val = {NULL_T};
 	register call_args_t *args = syms->args;
 	DNEW01(arr, array_t);
 
+	arr->arrlen = 1;
 	while (args) {
 		calc_run_expr(&val, &args->val);
 		CALC_CONV((&val), (&val), ival);
@@ -1368,12 +1379,13 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	CNEW0(arr->array, exp_val_t, arr->arrlen);
 
 	register unsigned int i;
-	for (i = 0; i < args->val.ival; i++) {
+	for (i = 0; i < arr->arrlen; i++) {
 		arr->array[i].run = calc_run_copy;
 	}
 
 	val.type = ARRAY_T;
 	val.arr = arr;
+	val.run = calc_run_arrdup;
 	
 	zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), &val, sizeof(exp_val_t), NULL);
 	
@@ -1419,21 +1431,21 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 	} else {
 		register call_args_t *args = syms->var->call->args;
 
-		exp_val_t val = {NULL_T};
+		exp_val_t tmp = {NULL_T};
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
-			calc_run_expr(&val, &args->val);
-			CALC_CONV((&val), (&val), ival);
-			val.type = INT_T;
-			if (val.ival < 0) {
-				val.ival = -val.ival;
+			calc_run_expr(&tmp, &args->val);
+			CALC_CONV((&tmp), (&tmp), ival);
+			tmp.type = INT_T;
+			if (tmp.ival < 0) {
+				tmp.ival = -tmp.ival;
 			}
 
-			if (val.ival >= ptr->arr->args[i]) {
+			if (tmp.ival >= ptr->arr->args[i]) {
 				yyerror("An array of %s index out of bounds.\n", syms->var->call->name);
 				goto breakStmt;
 			}
-			ii += val.ival*n;
+			ii += tmp.ival*n;
 			n *= ptr->arr->args[i];
 			if(++i  == ptr->arr->dims) {
 				ptr = &ptr->arr->array[ii];

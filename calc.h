@@ -237,6 +237,7 @@ void calc_free_func(func_def_f *def);
 
 void calc_run_copy(exp_val_t *ret, exp_val_t *expr); // 复制数值常量
 void calc_run_strdup(exp_val_t *ret, exp_val_t *expr); // 复制字符串常量
+void calc_run_arrdup(exp_val_t *ret, exp_val_t *expr);
 void calc_run_variable(exp_val_t *ret, exp_val_t *expr); // 读取变量
 void calc_run_add(exp_val_t *ret, exp_val_t *expr); // 加法运算
 void calc_run_sub(exp_val_t *ret, exp_val_t *expr); // 减法运算
