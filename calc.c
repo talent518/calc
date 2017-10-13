@@ -161,10 +161,7 @@ void calc_conv_to_double(exp_val_t *src) {
 	src->run = calc_run_copy;
 }
 
-#define CALC_CONV_num2str(fmt, size, key) do { \
-		CNEW0(str->c, char, size); \
-		str->n = snprintf(str->c, size-1, fmt, &src->key); \
-	} while(0)
+#define CALC_CONV_num2str(fmt, size, key) CNEW0(str->c, char, size); str->n = snprintf(str->c, size, fmt, src->key)
 
 void calc_conv_to_str(exp_val_t *src) {
 	DNEW01(str, string_t);
@@ -193,12 +190,13 @@ void calc_conv_to_str(exp_val_t *src) {
 		default: {
 			calc_free_expr(src);
 			CNEW0(str->c, char, 1);
-			src->str = str;
+			*(str->c) = '\0';
 			break;
 		}
 	}
 	
 	src->type = STR_T;
+	src->str = str;
 	src->run = calc_run_strdup;
 }
 void calc_conv_to_array(exp_val_t *src) {
@@ -419,7 +417,6 @@ void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 	expr->defExp->left->run(&left, expr->defExp->left);
 	expr->defExp->right->run(&right, expr->defExp->right);
 
-
 	ret->run = calc_run_copy;
 	switch (max(left.type, right.type)) {
 		case INT_T: {
@@ -447,26 +444,17 @@ void calc_run_add(exp_val_t *ret, exp_val_t *expr) {
 			break;
 		}
 		case STR_T: {
-			ret->run = calc_run_strdup;
 			CALC_CONV_op(&left, &right, str);
-			if(left.type != STR_T) {
-				right.str->gc++;
-				memcpy(ret, &right, sizeof(exp_val_t));
-				break;
-			}
-			if(right.type != STR_T) {
-				left.str->gc++;
-				memcpy(ret, &left, sizeof(exp_val_t));
-				break;
-			}
-			ret->type = STR_T;
-			ret->str = NEW1(string_t);
-			ret->str->gc = 0;
+			
+			CNEW01(ret->str, string_t);
 			ret->str->n = left.str->n + right.str->n;
-			ret->str->c = (char*) malloc(ret->str->n+1);
+			ret->str->c = (char*) malloc(ret->str->n + 1);
 			memcpy(ret->str->c, left.str->c, left.str->n);
-			memcpy(ret->str->c+left.str->n, right.str->c, right.str->n);
+			memcpy(ret->str->c + left.str->n, right.str->c, right.str->n);
 			*(ret->str->c + ret->str->n) = '\0';
+
+			ret->type = STR_T;
+			ret->run = calc_run_strdup;
 			break;
 		}
 		EMPTY_SWITCH_DEFAULT_CASE()
