@@ -71,7 +71,7 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 
 void calc_echo(exp_val_t *src) {
 	switch (src->type) {
-		CALC_ECHO_DEF(src, NULL_T, str, "%s");
+		case NULL_T: printf("NULL");break;
 		CALC_ECHO_DEF(src, INT_T, ival, "%d");
 		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
 		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
@@ -1495,7 +1495,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 
 	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
 		yyerror("stack overflow.\n");
-		return;
+		return NONE_STATUS;
 	}
 
 	linenostack[++linenostacktop].funcname = NULL;
