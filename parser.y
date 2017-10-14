@@ -26,6 +26,23 @@
 #define SET_CONST_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
 #define SET_STR_EXPR(dst) SET_CONST_EXPR(dst)
 
+#define RUN_EXPR_LN(dst, op1, n) if(op1.run==NULL){op1.result=&dst;calc_run_##n(&op1);dst.run=NULL;}
+#define RUN_EXPR_IF(dst, op1, op2, op3) if(op1.run==NULL){calc_conv_to_double(&op1);if(op1.dval){dst=op2;}else{dst=op3;}}
+
+#define RUN_EXPR_LR_IF(op1, op2) if(op1.run==NULL&&op2.run==NULL){
+#define RUN_EXPR_LR_IF_STMT(dst, op1, op2, rn) run_expr_lr.result=&dst;run_expr_lr.defExp=&run_expr_lr_def;run_expr_lr_def.left=&op1;run_expr_lr_def.right=&op2;op1.result=&op1;op2.result=&op2;rn(&run_expr_lr);dst.run=NULL;
+#define RUN_EXPR_LR_FI }
+#define RUN_EXPR_LR_rn(dst, op1, op2, rn) RUN_EXPR_LR_IF(op1, op2);RUN_EXPR_LR_IF_STMT(dst, op1, op2, rn);RUN_EXPR_LR_FI
+#define RUN_EXPR_LR(dst, op1, op2, n) RUN_EXPR_LR_rn(dst, op1, op2, calc_run_##n)
+#define RUN_EXPR_ADD(dst, op1, op2, n) RUN_EXPR_LR_IF(op1, op2);BCALL(dst,op1,op2);RUN_EXPR_LR_IF_STMT(dst, op1, op2, calc_run_##n);ECALL(dst,op1,op2);RUN_EXPR_LR_FI
+
+#define BCALL(dst,op1,op2) type_enum_t t1=op1.type,t2=op2.type
+#define ECALL(dst,op1,op2) if((t1==STR_T)^(t2==STR_T)){if(t1!=STR_T){STR_FREE(op1.str);}if(t2!=STR_T){STR_FREE(op2.str);}STR_FREE(dst.str);}if((t1==STR_T)&&(t2==STR_T)){STR_FREE(dst.str);}
+
+#define STR_FREE(str) str->gc=1;zend_hash_next_index_insert(&frees, str, 0, NULL);zend_hash_next_index_insert(&frees, str->c, 0, NULL)
+
+exp_val_t run_expr_lr={NULL_T};
+exp_def_t run_expr_lr_def;
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
 
@@ -194,17 +211,17 @@ arrayArg: '[' stmtExpr ']' { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,
 stmtExpr: const
  | varExpr
  | callExpr
- | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LN($$, $2, ABS_T, abs); } }
+ | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LN($$,$2,abs)else{VAL_EXPR_LN($$, $2, ABS_T, abs);} } }
  | '(' stmtExpr ')' { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
- | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LN($$, $2, MINUS_T, minus); } }
- | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run; } }
- | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, MUL_T, mul); } }
- | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, DIV_T, div); } }
- | stmtExpr '%' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, MOD_T, mod); } }
- | stmtExpr '^' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, POW_T, pow); } }
- | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, ADD_T, add); } }
- | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, SUB_T, sub); } }
- | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $3, $5, IF_T, iif);MEMDUP_RESULT($$.defExp->cond,&$1); } }
+ | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LN($$,$2,minus)else{VAL_EXPR_LN($$, $2, MINUS_T, minus);} } }
+ | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR_rn($$,$1,$3,$2.run)else{VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run;} } }
+ | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,mul)else{VAL_EXPR($$, $1, $3, MUL_T, mul);} } }
+ | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,div)else{VAL_EXPR($$, $1, $3, DIV_T, div);} } }
+ | stmtExpr '%' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,mod)else{VAL_EXPR($$, $1, $3, MOD_T, mod);} } }
+ | stmtExpr '^' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,pow)else{VAL_EXPR($$, $1, $3, POW_T, pow);} } }
+ | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_ADD($$,$1,$3,add)else{VAL_EXPR($$, $1, $3, ADD_T, add);} } }
+ | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,sub)else{VAL_EXPR($$, $1, $3, SUB_T, sub);} } }
+ | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_IF($$, $1, $3, $5)else{VAL_EXPR($$, $3, $5, IF_T, iif);MEMDUP_RESULT($$.defExp->cond,&$1);} } }
 ;
 varExpr: VARIABLE { if(EXPECTED(isSyntaxData)) {  } }
  | VARIABLE arrayArgList { if(EXPECTED(isSyntaxData)) { $$.type=ARRAY_T;NEW_FREES($$.call, func_call_t);$$.call->name=$1.var;$$.call->args=$2.callArgs;$$.run = calc_run_array; } }
