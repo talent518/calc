@@ -11,6 +11,8 @@ func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
 int isolate = 1;
 int exitCode = 0;
+char *errmsg = NULL;
+int errmsglen = 0;
 
 linenostack_t linenostack[1024]={{0,"TOP",NULL}};
 int linenostacktop = 0;
@@ -91,8 +93,6 @@ void calc_conv_to_long(exp_val_t *src) {
 	}
 	
 	src->type = LONG_T;
-	src->result = src;
-	src->run = NULL;
 }
 void calc_conv_to_float(exp_val_t *src) {
 	switch(src->type) {
@@ -130,8 +130,6 @@ void calc_conv_to_float(exp_val_t *src) {
 	}
 	
 	src->type = FLOAT_T;
-	src->result = src;
-	src->run = NULL;
 }
 void calc_conv_to_double(exp_val_t *src) {
 	switch(src->type) {
@@ -169,8 +167,6 @@ void calc_conv_to_double(exp_val_t *src) {
 	}
 	
 	src->type = DOUBLE_T;
-	src->result = src;
-	src->run = NULL;
 }
 
 #define CALC_CONV_num2str(fmt, size, key) CNEW0(str->c, char, size); str->n = snprintf(str->c, size, fmt, src->key)
@@ -206,11 +202,9 @@ void calc_conv_to_str(exp_val_t *src) {
 			break;
 		}
 	}
-	
+
 	src->type = STR_T;
 	src->str = str;
-	src->result = src;
-	src->run = NULL;
 }
 void calc_conv_to_array(exp_val_t *src) {
 	if(src->type != ARRAY_T) {
@@ -451,7 +445,7 @@ void calc_run_add(exp_val_t *expr) {
 			CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, str);
 			
 			CNEW01(expr->result->str, string_t);
-			expr->result->str->n = expr->defExp->right->result->str->n + expr->defExp->right->result->str->n;
+			expr->result->str->n = expr->defExp->left->result->str->n + expr->defExp->right->result->str->n;
 			expr->result->str->c = (char*) malloc(expr->result->str->n + 1);
 			memcpy(expr->result->str->c, expr->defExp->left->result->str->c, expr->defExp->left->result->str->n);
 			memcpy(expr->result->str->c + expr->defExp->left->result->str->n, expr->defExp->right->result->str->c, expr->defExp->right->result->str->n);
@@ -889,6 +883,68 @@ void calc_run_func(exp_val_t *expr) {
 		linenostacktop--;
 	} else {
 		yyerror("undefined user function for %s.\n", expr->call->name);
+	}
+}
+
+int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key) {
+	HashTable *ht = va_arg(args, HashTable*);
+	
+	zend_hash_quick_del(ht, hash_key->arKey, hash_key->nKeyLength, hash_key->h);
+}
+
+void calc_run_sys_runfile_before(HashTable *ht) {
+	zend_hash_copy(&files, ht, NULL, 1, 0);
+}
+
+void calc_run_sys_runfile(exp_val_t *expr) {
+	register unsigned int argc = 0;
+	call_args_t *args = expr->call->args;
+	register call_args_t *tmpArgs = expr->call->args;
+	
+	while(tmpArgs) {
+		argc++;
+		
+		tmpArgs = tmpArgs->next;
+	}
+
+	if (expr->call->argc != argc) {
+		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		return;
+	}
+	
+	calc_run_expr(&args->val);
+	
+	if(args->val.result->type != STR_T) {
+		yyerror("The system function %s parameter not string type.\n", expr->call->name);
+	}
+	
+	func_symbol_t *tmpTopSyms = topSyms;
+	//HashTable tmpTopFrees = topFrees;
+	
+	//zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
+	topSyms = NULL;
+	
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
+	
+	int _isolate = isolate;
+	isolate = 0;
+	int ret = runfile(expr->result, args->val.result->str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, expr->call->ht);
+	isolate = _isolate;
+	
+	zend_hash_apply_with_arguments(expr->call->ht, (apply_func_args_t)apply_delete, 1, &files);
+	
+	//zend_hash_destroy(&tmpTopFrees);
+	//topFrees = tmpTopFrees;
+	tmpTopSyms = topSyms;
+	
+	if(ret) {
+		calc_free_expr(expr->result);
+		
+		expr->result->type = STR_T;
+		CNEW01(expr->result->str, string_t);
+		expr->result->str->c = strndup(errmsg, errmsglen);
+		expr->result->str->n = errmsglen;
 	}
 }
 
@@ -1571,6 +1627,7 @@ int main(int argc, char **argv) {
 		, argv[0])
 	if(argc > 1) {
 		register int i;
+		exp_val_t expr = {NULL_T};
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
 				if(argv[i][1] && !argv[i][2]) {
@@ -1596,13 +1653,15 @@ int main(int argc, char **argv) {
 						EMPTY_SWITCH_DEFAULT_CASE()
 					}
 				} else {
-					runfile("-");
+					runfile(&expr, "-", NULL, NULL);
 					break;
 				}
 			} else {
-				runfile(argv[i]);
+				runfile(&expr, argv[i], NULL, NULL);
 			}
 		}
+
+		calc_free_expr(&expr);
 	} else {
 		USAGE();
 	}
@@ -1616,23 +1675,38 @@ int main(int argc, char **argv) {
 	zend_hash_destroy(&pools);
 	zend_hash_destroy(&results);
 	zend_hash_destroy(&frees);
+	
+	if(errmsg) {
+		free(errmsg);
+	}
 
 	return exitCode;
 }
 
-int runfile(char *filename) {
+int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr) {
 	int yret, ret = 0;
 	FILE *fp = stdin;
 	char filepath[1024] = "";
 	
 	if(strcmp(filename, "-")) {
 		if(realpath(filename, filepath)) {
-			filename = filepath;
+			filename = strdup(filepath);
+			
+			zend_hash_next_index_insert(&frees, filename, 0, NULL);
+			
 			fp = fopen(filename, "r");
 		} else {
 			yyerror("File \"%s\" not found!\n", filepath);
 			return 1;
 		}
+	}
+
+	if(zend_hash_add(&files, filename, strlen(filename), NULL, 0, NULL)!=SUCCESS) {
+		if(fp != stdin) {
+			fclose(fp);
+		}
+		yyerror("File \"%s\" already included!\n", filename);
+		return 1;
 	}
 	
 	dprintf("==========================\n");
@@ -1640,7 +1714,6 @@ int runfile(char *filename) {
 	dprintf("--------------------------\n");
 	curFileName = filename;
 	yylineno = 1;
-	zend_hash_add(&files, filename, strlen(filename), NULL, 0, NULL);
 
 	yyrestart(fp);
 	
@@ -1654,10 +1727,11 @@ int runfile(char *filename) {
 	}
 	
 	if(isSyntaxData) {
-		exp_val_t expr;
-		memset(&expr, 0, sizeof(exp_val_t));
-		calc_run_syms(&expr, topSyms);
-		calc_free_expr(&expr);
+		memset(expr, 0, sizeof(exp_val_t));
+		if(before) {
+			before(ptr);
+		}
+		calc_run_syms(expr, topSyms);
 		zend_hash_clean(&topFrees);
 		topSyms = NULL;
 		if(isolate) {
@@ -1666,7 +1740,6 @@ int runfile(char *filename) {
 		}
 	}
 	while(yret && !yywrap()) {}
-	zend_hash_clean(&files);
 	frees.pDestructor = (dtor_func_t)free_frees;
 	
 	if(fp != stdin) {
@@ -1754,7 +1827,21 @@ void yyerror(const char *s, ...) {
 	va_list ap;
 
 	va_start(ap, s);
-	vfprintf(stderr, s, ap);
+	errmsglen = vfprintf(stderr, s, ap);
+	va_end(ap);
+
+	if(errmsg) {
+		free(errmsg);
+	}
+	CNEW(errmsg, char, errmsglen+1);
+	va_start(ap, s);
+	vsprintf(errmsg, s, ap);
+	errmsglen--;
+	while(errmsg[errmsglen] == '\n' || errmsg[errmsglen] == '\n') {
+		errmsg[errmsglen] = '\0';
+		errmsglen--;
+	}
+	errmsglen++;
 	va_end(ap);
 	
 	fprintf(stderr, "===================================\n");

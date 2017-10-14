@@ -60,7 +60,7 @@ typedef enum _type_enum_t {
 } type_enum_t;
 
 typedef enum _call_enum_f {
-	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F
+	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F, RUNFILE_F
 } call_enum_f;
 
 typedef enum _symbol_enum_t {
@@ -119,6 +119,7 @@ typedef struct {
 	unsigned char argc;
 	char *name;
 	call_args_t *args;
+	HashTable *ht;
 } func_call_t;
 
 typedef struct {
@@ -234,7 +235,6 @@ void calc_conv_to_array(exp_val_t *src);
 void calc_echo(exp_val_t *src);
 void calc_sprintf(smart_string *buf, exp_val_t *src);
 void calc_print(char *p);
-int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 void calc_func_print(func_def_f *def);
 void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
@@ -259,6 +259,7 @@ void calc_run_eq(exp_val_t *expr); // ==运算
 void calc_run_ne(exp_val_t *expr); // !=运算
 void calc_run_array(exp_val_t *expr); // 读取数组元素值
 void calc_run_func(exp_val_t *expr); // 执行用户函数
+void calc_run_sys_runfile(exp_val_t *expr);
 void calc_run_sys_sqrt(exp_val_t *expr);
 void calc_run_sys_pow(exp_val_t *expr);
 void calc_run_sys_sin(exp_val_t *expr);
@@ -374,6 +375,8 @@ zend_always_inline static void str2val(exp_val_t *val, char *str) {
 	}
 }
 
+int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
+int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key);
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 #define free_str(s) if(!(s->gc--)) { \
@@ -392,6 +395,7 @@ extern linenostack_t linenostack[];
 extern int linenostacktop;
 extern int linenofunc;
 extern char *linenofuncname;
+extern char *errmsg;
 
 void seed_rand();
 void yyerror(const char *s, ...);
@@ -446,7 +450,9 @@ zend_always_inline static double microtime() {
 	return (double)(tp.tv_sec + tp.tv_usec / 1000000.00);
 }
 
-int runfile(char *filename);
+typedef void (*top_syms_run_before_func_t)(void *ptr);
+
+int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr);
 
 #define YYERROR_VERBOSE 1
 #define YY_(s) s"\n"

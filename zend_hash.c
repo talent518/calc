@@ -648,7 +648,7 @@ void zend_hash_reverse_apply(HashTable *ht, apply_func_t apply_func)
 }
 
 
-void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size)
+void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, int isAppend, uint size)
 {
 	Bucket *p;
 	void *new_entry;
@@ -662,6 +662,8 @@ void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopy
 		}
 		if (p->nKeyLength) {
 			zend_hash_quick_update(target, p->arKey, p->nKeyLength, p->h, p->pData, size, &new_entry);
+		} else if(isAppend) {
+			zend_hash_next_index_insert(target, p->pData, size, &new_entry);
 		} else {
 			zend_hash_index_update(target, p->h, p->pData, size, &new_entry);
 		}
@@ -676,7 +678,7 @@ void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopy
 }
 
 
-void _zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size, int overwrite)
+void _zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, int isAppend, uint size, int overwrite)
 {
 	Bucket *p;
 	void *t;
@@ -686,6 +688,10 @@ void _zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCo
 	while (p) {
 		if (p->nKeyLength>0) {
 			if (_zend_hash_quick_add_or_update(target, p->arKey, p->nKeyLength, p->h, p->pData, size, &t, mode)==SUCCESS && pCopyConstructor) {
+				pCopyConstructor(t);
+			}
+		} else if(isAppend) {
+			if(zend_hash_next_index_insert(target, p->pData, size, &t)==SUCCESS && pCopyConstructor) {
 				pCopyConstructor(t);
 			}
 		} else {

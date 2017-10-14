@@ -70,13 +70,13 @@ calclist:
  | calclist funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
  | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
- | calclist INCLUDE STR ';' {
+ | calclist include {
 	FILE *fp = NULL;
 	char filepath[1024] = "";
 	char *oldpath = getcwd(NULL, 0);
 	strncat(filepath, curFileName, strrchr(curFileName, '/')-curFileName);
 	chdir(filepath);
-	if(realpath($3.str->c, filepath)) {
+	if(realpath($2.str->c, filepath)) {
 		fp = fopen(filepath, "r");
 	}
 	chdir(oldpath);
@@ -105,6 +105,9 @@ calclist:
 		yyerror("File \"%s\" not found!\n", filepath);
 	}
 }
+;
+include: INCLUDE STR ';' { $$=$2; }
+ | INCLUDE '(' STR ')' ';' { $$=$3; }
 ;
 funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var; } }
 /************************ 函数参数语法 ************************/
@@ -194,13 +197,13 @@ stmtExpr: const
  | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LN($$, $2, ABS_T, abs); } }
  | '(' stmtExpr ')' { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
  | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LN($$, $2, MINUS_T, minus); } }
- | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, ADD_T, add); } }
- | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, SUB_T, sub); } }
+ | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run; } }
  | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, MUL_T, mul); } }
  | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, DIV_T, div); } }
  | stmtExpr '%' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, MOD_T, mod); } }
  | stmtExpr '^' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, POW_T, pow); } }
- | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run; } }
+ | stmtExpr '+' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, ADD_T, add); } }
+ | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $1, $3, SUB_T, sub); } }
  | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { VAL_EXPR($$, $3, $5, IF_T, iif);MEMDUP_RESULT($$.defExp->cond,&$1); } }
 ;
 varExpr: VARIABLE { if(EXPECTED(isSyntaxData)) {  } }

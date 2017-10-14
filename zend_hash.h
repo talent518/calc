@@ -140,7 +140,7 @@ typedef enum {
 	(((Bucket*)(((char*)(s))-sizeof(Bucket)))->h)
 
 #include <assert.h>
-#define ZEND_ASSERT(exp) assert(exp)
+#define ZEND_ASSERT(exp) //assert(exp)
 
 #define HANDLE_BLOCK_INTERRUPTIONS()
 #define HANDLE_UNBLOCK_INTERRUPTIONS()
@@ -309,24 +309,20 @@ int zend_hash_set_pointer(HashTable *ht, const HashPointer *ptr);
 	zend_hash_update_current_key_ex(ht, key_type, str_index, str_length, num_index, HASH_UPDATE_KEY_ANYWAY, NULL)
 
 /* Copying, merging and sorting */
-void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size);
-void _zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size, int overwrite);
+void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, int isAppend, uint size);
+void _zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, int isAppend, uint size, int overwrite);
 void zend_hash_merge_ex(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, uint size, merge_checker_func_t pMergeSource, void *pParam);
 int zend_hash_sort(HashTable *ht, sort_func_t sort_func, compare_func_t compare_func, int renumber);
 int zend_hash_compare(HashTable *ht1, HashTable *ht2, compare_func_t compar, zend_bool ordered);
 int zend_hash_minmax(const HashTable *ht, compare_func_t compar, int flag, void **pData);
 
-#define zend_hash_merge(target, source, pCopyConstructor, tmp, size, overwrite)					\
-	_zend_hash_merge(target, source, pCopyConstructor, tmp, size, overwrite)
+#define zend_hash_merge(target, source, pCopyConstructor, isAppend, size, overwrite)					\
+	_zend_hash_merge(target, source, pCopyConstructor, isAppend, size, overwrite)
 
 int zend_hash_num_elements(const HashTable *ht);
 
 int zend_hash_rehash(HashTable *ht);
 void zend_hash_reindex(HashTable *ht, zend_bool only_integer_keys);
-
-void _zend_hash_splice(HashTable *ht, uint nDataSize, copy_ctor_func_t pCopyConstructor, uint offset, uint length, void **list, uint list_count, HashTable *removed);
-#define zend_hash_splice(ht, nDataSize, pCopyConstructor, offset, length, list, list_count, removed) \
-	_zend_hash_splice(ht, nDataSize, pCopyConstructor, offset, length, list, list_count, removed)
 
 /*
  * DJBX33A (Daniel J. Bernstein, Times 33 with Addition)

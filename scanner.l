@@ -141,6 +141,7 @@ zend_always_inline void unescape(char *p) {
 "/="                                           { return DIVEQ; }
 "%="                                           { return MODEQ; }
 "^="                                           { return POWEQ; }
+"runfile"                                      { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=RUNFILE_F;yylval.call->argc=1;yylval.call->name="runfile(string str)";CNEW1(yylval.call->ht, HashTable);zend_hash_init(yylval.call->ht, 2, NULL);zend_hash_copy(yylval.call->ht, &files, NULL, 1, 0);append_pool(yylval.call->ht, (dtor_func_t)zend_hash_destroy_ptr);yylval.run=calc_run_sys_runfile;} return CALL; }
 "srand"                                        { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=SRAND_F;yylval.call->argc=0;yylval.call->name="srand()";yylval.run=calc_run_sys_srand;} return CALL; }
 "microtime"                                    { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=MICROTIME_F;yylval.call->argc=0;yylval.call->name="microtime()";yylval.run=calc_run_sys_microtime;} return CALL; }
 "cos"                                          { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=COS_F;yylval.call->argc=1;yylval.call->name="cos(double radian)";yylval.run=calc_run_sys_cos;} return CALL; }
