@@ -1426,27 +1426,32 @@ status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms) {
 	return NONE_STATUS;
 }
 
+#define VAR_ACC() \
+	if(EXPECTED(syms->type==ACC_STMT_T)) { \
+		ptr->result = ptr; \
+		ptr->run = NULL; \
+		syms->val->defExp->left = ptr; \
+		syms->val->result = ptr; \
+		calc_run_expr(syms->val); \
+	} else { \
+		calc_run_expr(syms->val); \
+		memcpy_ref_expr(ptr, syms->val->result); \
+	}
 status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t *ptr = NULL;
-
-	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->var, strlen(syms->var->var), (void**)&ptr);
-	if (EXPECTED(ptr!=NULL)) {
-		memcpy_ref_expr(ptr, syms->val->result);
-	} else {
-		DNEW01(p, exp_val_t);
-		memcpy_ref_expr(p, syms->val->result);
-
-		zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), p, 0, NULL);
+	if (UNEXPECTED(ptr==NULL)) {
+		CNEW01(ptr, exp_val_t);
+		ptr->type = INT_T;
+		zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), ptr, 0, NULL);
 	}
-	
+	VAR_ACC();
 	return NONE_STATUS;
 }
 
 status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t *ptr = NULL;
 
-	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->call->name, strlen(syms->var->call->name), (void**)&ptr);
 	if (UNEXPECTED(!ptr || ptr->type != ARRAY_T)) {
 		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type]);
@@ -1472,7 +1477,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 				if (UNEXPECTED(args->next!=NULL)) {
 					yyerror("An array of %s dimension bounds.\n", syms->var->call->name);
 				} else {
-					memcpy_ref_expr(ptr, syms->val->result);
+					VAR_ACC();
 				}
 				
 				return NONE_STATUS;

@@ -73,6 +73,7 @@ typedef enum _symbol_enum_t {
 	ECHO_STMT_T, // echo
 	RET_STMT_T, // ret
 	ASSIGN_STMT_T, // var = expr
+	ACC_STMT_T, // var += expr
 	IF_STMT_T, // if(expr) { stmtlist } else { stmtlist }
 	WHILE_STMT_T, // while(expr) { breakStmtlist }
 	DO_WHILE_STMT_T, // do { breakStmtlist } while(expr)
@@ -80,13 +81,6 @@ typedef enum _symbol_enum_t {
 	LIST_STMT_T, // list;
 	CLEAR_STMT_T, // clear;
 	ARRAY_STMT_T, // array var[int][int]...
-	INC_STMT_T, // increment var++
-	DEC_STMT_T, // decrement var--
-	ADDEQ_STMT_T, // var += val
-	SUBEQ_STMT_T, // var -= val
-	MULEQ_STMT_T, // var *= val
-	DIVEQ_STMT_T, // var /= val
-	MODEQ_STMT_T, // var %= val
 	FUNC_STMT_T, // demo(); demo(1,2,3);
 	FOR_STMT_T, // for(;;) { breakStmtlist }
 	SWITCH_STMT_T, // switch(expr) { switchStmtList }
