@@ -401,13 +401,7 @@ void calc_run_variable(exp_val_t *expr) {
 	
 	zend_hash_find(&vars, expr->var, strlen(expr->var), (void**)&ptr);
 	if (ptr) {
-		memcpy(expr->result, ptr, sizeof(exp_val_t));
-		if(ptr->type == STR_T) {
-			expr->result->str->gc++;
-		}
-		if(expr->result->type == ARRAY_T) {
-			expr->result->arr->gc++;
-		}
+		memcpy_ref_expr(expr->result, ptr);
 	}
 }
 
@@ -851,7 +845,7 @@ void calc_run_func(exp_val_t *expr) {
 		calc_run_syms(expr->result, def->syms);
 
 		#ifndef NO_FUNC_RUN_ARGS
-			free(buf.c);
+			zend_hash_next_index_insert(&frees, buf.c, 0, NULL);
 		#endif
 
 		syms = def->syms;

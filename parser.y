@@ -26,7 +26,7 @@
 #define SET_CONST_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
 #define SET_STR_EXPR(dst) SET_CONST_EXPR(dst)
 
-#define RUN_EXPR_LN(dst, op1, n) if(op1.run==NULL){op1.result=&dst;calc_run_##n(&op1);dst.run=NULL;}
+#define RUN_EXPR_LN(dst, op1, n) if(op1.run==NULL){run_expr_lr.ref=&op1;op1.result=&dst;calc_run_##n(&run_expr_lr);dst.run=NULL;}
 #define RUN_EXPR_IF(dst, op1, op2, op3) if(op1.run==NULL){calc_conv_to_double(&op1);if(op1.dval){dst=op2;}else{dst=op3;}}
 
 #define RUN_EXPR_LR_IF(op1, op2) if(op1.run==NULL&&op2.run==NULL){
@@ -127,6 +127,7 @@ include: INCLUDE STR ';' { $$=$2; }
  | INCLUDE '(' STR ')' ';' { $$=$3; }
 ;
 funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var; } }
+;
 /************************ 函数参数语法 ************************/
 funcArgList:  funcArg
  | funcArgList ',' funcArg { if(EXPECTED(isSyntaxData)) { APPEND($$.defArgs,$3.defArgs); } }
