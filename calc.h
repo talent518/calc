@@ -30,6 +30,12 @@
 #define NEW_FREES(dst, type) dst=NEW1(type);zend_hash_next_index_insert(&frees, dst, 0, NULL)
 #define MEMDUP(dst,src,type) NEW_FREES(dst, type);memcpy(dst,src,sizeof(type))
 
+#define EXPR_RESULT(expr) \
+	if(expr->result == NULL) { \
+			CNEW01(expr->result, exp_val_t); \
+			zend_hash_next_index_insert(&results, expr->result, 0, NULL); \
+		}
+
 typedef enum _type_enum_t {
 	NULL_T=0, // 空
 	INT_T, // 整型
@@ -300,16 +306,22 @@ void calc_free_vars(exp_val_t *expr);
 		(expr)->run((expr)); \
 	}
 
-#define memcpy_ref_expr(dst, src) \
-	calc_free_expr(dst); \
-	memcpy(dst, src, sizeof(exp_val_t)); \
+#define ptr_expr(dst, src) \
+	dst = src; \
+	ref_expr(dst, src)
+
+#define ref_expr(dst, src) \
 	if(dst->type == STR_T) { \
 		dst->str->gc++; \
 	} \
 	if(dst->type == ARRAY_T) { \
 		dst->arr->gc++; \
-	} \
-	dst->result = dst
+	}
+
+#define memcpy_ref_expr(dst, src) \
+	calc_free_expr(dst); \
+	memcpy(dst, src, sizeof(exp_val_t)); \
+	ref_expr(dst, src)
 
 #define str2num(val) \
 	if((val)->type == STR_T) { \

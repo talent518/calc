@@ -401,7 +401,10 @@ void calc_run_variable(exp_val_t *expr) {
 	
 	zend_hash_find(&vars, expr->var, strlen(expr->var), (void**)&ptr);
 	if (ptr) {
-		memcpy_ref_expr(expr->result, ptr);
+		expr->result = ptr;
+	} else {
+		CNEW01(expr->result, exp_val_t);
+		zend_hash_update(&vars, expr->var, strlen(expr->var), expr->result, 0, NULL);
 	}
 }
 
@@ -677,22 +680,26 @@ void calc_run_ne(exp_val_t *expr) {
 void calc_run_array(exp_val_t *expr) {
 	exp_val_t *ptr = NULL, *tmp;
 	register call_args_t *args = expr->call->args;
+	register int isref = 1;
 	
 	zend_hash_find(&vars, expr->call->name, strlen(expr->call->name), (void**)&ptr);
 	if(!ptr) {
 		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name);
 	} else if (ptr->type == STR_T) {
 		str_array_access:
+		EXPR_RESULT(expr);
 		if(args->next) {
 			yyerror("An string of %s dimension bounds.\n", expr->call->name);
 			return;
 		}
+		
 		calc_run_expr(&args->val);
 		calc_conv_to_int(args->val.result);
 		if(args->val.result->ival<0 || args->val.result->ival>=ptr->str->n) {
 			yyerror("An string of %s index out of bounds.\n", expr->call->name);
 			return;
 		}
+		
 		expr->result->type = STR_T;
 		CNEW01(expr->result->str, string_t);
 		expr->result->str->c = strndup(ptr->str->c+args->val.result->ival, 1);
@@ -710,6 +717,7 @@ void calc_run_array(exp_val_t *expr) {
 
 			if (args->val.result->ival >= ptr->arr->args[i]) {
 				yyerror("An array of %s index out of bounds.\n", expr->call->name);
+				EXPR_RESULT(expr);
 				return;
 			}
 			ii += args->val.result->ival*n;
@@ -719,8 +727,9 @@ void calc_run_array(exp_val_t *expr) {
 				if (args->next) {
 					if(ptr->type == STR_T) goto str_array_access;
 					yyerror("An array of %s dimension bounds.\n", expr->call->name);
+					EXPR_RESULT(expr);
 				} else {
-					memcpy_ref_expr(expr->result, ptr);
+					expr->result = ptr;
 				}
 				return;
 			}
@@ -729,6 +738,7 @@ void calc_run_array(exp_val_t *expr) {
 		}
 
 		yyerror("Array %s dimension deficiency.\n", expr->call->name);
+		EXPR_RESULT(expr);
 	}
 }
 
@@ -1480,8 +1490,12 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_syms(ret, syms->lsyms);
 	
-	calc_run_expr(syms->cond);
-	calc_conv_to_double(syms->cond->result);
+	if(syms->cond->type == NULL_T) {
+		syms->cond->result->dval = 1;
+	} else {
+		calc_run_expr(syms->cond);
+		calc_conv_to_double(syms->cond->result);
+	}
 
 	status_enum_t status;
 	while (syms->cond->result->dval) {
@@ -1492,8 +1506,10 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 		
 		calc_run_syms(ret, syms->rsyms);
 
-		calc_run_expr(syms->cond);
-		calc_conv_to_double(syms->cond->result);
+		if(syms->cond->type != NULL_T) {
+			calc_run_expr(syms->cond);
+			calc_conv_to_double(syms->cond->result);
+		}
 	}
 	
 	return NONE_STATUS;

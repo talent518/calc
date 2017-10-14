@@ -7,7 +7,7 @@
 
 #define CALL_ARGS(args,v) NEW_FREES(args, call_args_t);args->val=v;SET_EXPR_RESULT(&args->val);args->tail=args;args->next=NULL
 #define FUNC_ARGS(args,v) NEW_FREES(args, func_args_t);args->val=v;SET_EXPR_RESULT(&args->val);args->tail=args;args->next=NULL
-#define APPEND(args,val) args->tail->next=val;args->tail=val
+#define APPEND(args,val) if(args){args->tail->next=val;args->tail=val;}
 #define STMT(o,t,k,v) NEW_FREES(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->filename=curFileName;o.syms->tail=o.syms;o.syms->next=NULL
 
 #define FUNC_MOVE_FREES(def) //zend_hash_init(&def->frees, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &def->frees)
@@ -22,7 +22,7 @@
 
 #define EXPR(n,t,k,v) exp_val_t n;n.type=t;n.k=v;SET_NUM_EXPR(&n)
 
-#define SET_EXPR_RESULT(dst) CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL)
+#define SET_EXPR_RESULT(dst) if((dst)->type==VAR_T&&(dst)->type==ARRAY_T){(dst)->result=NULL;}else{CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL);}
 #define SET_NUM_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
 #define SET_STR_EXPR(dst) SET_NUM_EXPR(dst)
 
@@ -176,10 +176,12 @@ stmt: forStmt ';'
  | FOR '(' forStmtList ';' forStmtExpr ';' forStmtList ')' '{' breakStmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,FOR_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$5);$$.syms->lsyms=$3.syms;$$.syms->rsyms=$7.syms;$$.syms->forSyms=$10.syms;$$.syms->run = calc_run_sym_for; } }
  | ARRAY VARIABLE arrayArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ARRAY_STMT_T,args,$3.callArgs);MEMDUP_RESULT($$.syms->var,&$2);$$.syms->run = calc_run_sym_array; } }
  | SWITCH '(' stmtExpr ')' '{' switchStmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,SWITCH_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$3);$$.syms->lsyms=$6.syms;$$.syms->rsyms=NULL;func_symbol_t *syms = $6.syms;$$.syms->ht = (HashTable*)malloc(sizeof(HashTable));zend_hash_init($$.syms->ht, 2, NULL);while(syms){if(syms->type == CASE_STMT_T) zend_hash_add($$.syms->ht, syms->cond->str->c, syms->cond->str->n, syms->next, 0, NULL);if(syms->type == DEFAULT_STMT_T) $$.syms->rsyms = syms->next;syms = syms->next;}append_pool($$.syms->ht, (dtor_func_t)zend_hash_destroy_ptr);$$.syms->run = calc_run_sym_switch; } }
- | ';' { if(EXPECTED(isSyntaxData)) { STMT($$,NULL_STMT_T,args,NULL);$$.syms->run = calc_run_sym_null; } } // 空语句
+ | nullStmt ';'
+;
+nullStmt: /* 空语句 */ { $$.syms=NULL; }
 ;
 forStmtList: forStmt
- | /* 空语句 */ { if(EXPECTED(isSyntaxData)) { STMT($$,NULL_STMT_T,args,NULL);$$.syms->run = calc_run_sym_null; } }
+ | nullStmt
  | forStmtList ',' forStmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$3.syms); } }
 ;
 forStmt: LIST { if(EXPECTED(isSyntaxData)) { STMT($$,LIST_STMT_T,args,NULL);$$.syms->run = calc_run_sym_list; } }
@@ -197,7 +199,7 @@ forStmt: LIST { if(EXPECTED(isSyntaxData)) { STMT($$,LIST_STMT_T,args,NULL);$$.s
  | callExpr { if(EXPECTED(isSyntaxData)) { STMT($$,FUNC_STMT_T,args,NULL);MEMDUP_RESULT($$.syms->expr,&$1);$$.syms->run = calc_run_sym_func; } }
 ;
 forStmtExpr: stmtExpr
- | /* 空语句 */ { $$.type = NULL_T; }
+ | /* 空语句 */ { $$.type = NULL_T;$$.run=NULL; }
 ;
 varArgList: varArg
  | varArgList ',' varArg { if(EXPECTED(isSyntaxData)) { APPEND($$.callArgs,$3.callArgs); } }
