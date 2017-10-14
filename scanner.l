@@ -106,8 +106,6 @@ zend_always_inline void unescape(char *p) {
 	}
 	*q = '\0';
 }
-
-#define NEW_FREES(dst, type) dst=NEW1(type);zend_hash_next_index_insert(&frees, dst, 0, NULL)
 %}
 
 %%
@@ -185,12 +183,12 @@ zend_always_inline void unescape(char *p) {
 "float"                                        { /* 忽略float关键字 */ }
 "double"                                       { /* 忽略double关键字 */ }
 "string"                                       { /* 忽略string关键字 */ }
-"RAND_MAX"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=LONG_T;yylval.lval=RAND_MAX;yylval.run = calc_run_copy;}  return CONST_RAND_MAX; }
+"RAND_MAX"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=LONG_T;yylval.lval=RAND_MAX;}  return CONST_RAND_MAX; }
 "PI"                                           { return CONST_PI; }
-"endl"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup("\n");yylval.str->n=1;yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);yylval.run = calc_run_strdup;} return STR; }
-([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {str2val(&yylval, yytext);yylval.run = calc_run_copy;} return NUMBER; }
+"endl"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup("\n");yylval.str->n=1;yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);} return STR; }
+([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {str2val(&yylval, yytext);} return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.var=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);yylval.run = calc_run_variable;} return VARIABLE; }
-\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str->c);yylval.str->n=strlen(yylval.str->c);yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);yylval.run = calc_run_strdup; return STR; }
+\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str->c);yylval.str->n=strlen(yylval.str->c);yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL); return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 
