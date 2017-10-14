@@ -1622,10 +1622,17 @@ int main(int argc, char **argv) {
 
 int runfile(char *filename) {
 	int yret, ret = 0;
-	FILE *fp = strcmp(filename, "-") ? fopen(filename, "r") : stdin;
-	if(!fp) {
-		yyerror("File \"%s\" not found!\n", filename);
-		return 1;
+	FILE *fp = stdin;
+	char filepath[1024] = "";
+	
+	if(strcmp(filename, "-")) {
+		if(realpath(filename, filepath)) {
+			filename = filepath;
+			fp = fopen(filename, "r");
+		} else {
+			yyerror("File \"%s\" not found!\n", filepath);
+			return 1;
+		}
 	}
 	
 	dprintf("==========================\n");

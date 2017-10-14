@@ -71,40 +71,39 @@ calclist:
  | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
  | calclist INCLUDE STR ';' {
-	FILE *fp = fopen($3.str->c, "r");
+	FILE *fp = NULL;
+	char filepath[1024] = "";
+	char *oldpath = getcwd(NULL, 0);
+	strncat(filepath, curFileName, strrchr(curFileName, '/')-curFileName);
+	chdir(filepath);
+	if(realpath($3.str->c, filepath)) {
+		fp = fopen(filepath, "r");
+	}
+	chdir(oldpath);
+	free(oldpath);
 	if(fp) {
-		if (zend_hash_add(&files, $3.str->c, $3.str->n, NULL, 0, NULL) == SUCCESS) {
+		if (zend_hash_add(&files, filepath, strlen(filepath), NULL, 0, NULL) == SUCCESS) {
 			wrap_stack_t *_wrap_stack = (wrap_stack_t*)malloc(sizeof(wrap_stack_t));
 			_wrap_stack->prev = tailWrapStack;
 			_wrap_stack->fp = yyin;
 			_wrap_stack->filename = curFileName;
 			_wrap_stack->lineno = yylineno;
-			curFileName = $3.str->c;
+			curFileName = strdup(filepath);
+			zend_hash_next_index_insert(&frees, curFileName, 0, NULL);
 			yylineno = 1;
 			tailWrapStack = _wrap_stack;
 			includeDeep++;
 			dprintf("==========================\n");
-			dprintf("BEGIN INPUT: %s\n", $3.str->c);
+			dprintf("BEGIN INPUT: %s\n", filepath);
 			dprintf("--------------------------\n");
 			yypush_buffer_state(yy_create_buffer(fp, 16384));
 		} else {
-			yyerror("File \"%s\" already included!\n", $3.str->c);
-			fclose(fp);/*
-			if(EXPECTED(isSyntaxData)) {
-				free($3.str->c);
-				free($3.str);
-			}*/
+			yyerror("File \"%s\" already included!\n", filepath);
+			fclose(fp);
 		}
 	} else {
-		yyerror("File \"%s\" not found!\n", $3.str->c);/*
-		if(EXPECTED(isSyntaxData)) {
-			free($3.str->c);
-			free($3.str);
-		}*/
-	}/*
-	if(EXPECTED(isSyntaxData)) {
-		zend_hash_clean(&frees);
-	}*/
+		yyerror("File \"%s\" not found!\n", filepath);
+	}
 }
 ;
 funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var; } }

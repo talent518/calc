@@ -10,6 +10,7 @@
 #include <complex.h>
 #include <float.h>
 #include <limits.h>
+#include <unistd.h>
 
 #include "zend_hash.h"
 #include "smart_string.h"
