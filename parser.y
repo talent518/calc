@@ -20,11 +20,11 @@
 #define VAL_EXPR(dst, op1, op2, t, n) VAL_EXPR_LR(dst, op1, op2, t);dst.run = calc_run_##n
 #define MEMDUP_EXPR(dst, src, op1, op2, t, n) VAL_EXPR(src, op1, op2, t, n);MEMDUP_RESULT(dst.syms->val,&src)
 
-#define EXPR(n,t,k,v) exp_val_t n;n.type=t;n.k=v;SET_CONST_EXPR(&n)
+#define EXPR(n,t,k,v) exp_val_t n;n.type=t;n.k=v;SET_NUM_EXPR(&n)
 
 #define SET_EXPR_RESULT(dst) CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL)
-#define SET_CONST_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
-#define SET_STR_EXPR(dst) SET_CONST_EXPR(dst)
+#define SET_NUM_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
+#define SET_STR_EXPR(dst) SET_NUM_EXPR(dst)
 
 #define RUN_EXPR_LN(dst, op1, n) if(op1.run==NULL){run_expr_lr.ref=&op1;op1.result=&dst;calc_run_##n(&run_expr_lr);dst.run=NULL;}
 #define RUN_EXPR_IF(dst, op1, op2, op3) if(op1.run==NULL){calc_conv_to_double(&op1);if(op1.dval){dst=op2;}else{dst=op3;}}
@@ -224,7 +224,7 @@ stmtExpr: const
  | stmtExpr '-' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,sub)else{VAL_EXPR($$, $1, $3, SUB_T, sub);} } }
  | stmtExpr '?' stmtExpr ':' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_IF($$, $1, $3, $5)else{VAL_EXPR($$, $3, $5, IF_T, iif);MEMDUP_RESULT($$.defExp->cond,&$1);} } }
 ;
-varExpr: VARIABLE { if(EXPECTED(isSyntaxData)) {  } }
+varExpr: VARIABLE
  | VARIABLE arrayArgList { if(EXPECTED(isSyntaxData)) { $$.type=ARRAY_T;NEW_FREES($$.call, func_call_t);$$.call->name=$1.var;$$.call->args=$2.callArgs;$$.run = calc_run_array; } }
 ;
 callExpr: CALL '(' ')' { if(EXPECTED(isSyntaxData)) { $$=$1;$$.call->args=NULL;$$.run = $1.run; } } // 系统函数
@@ -237,7 +237,7 @@ stmtExprArgList: stmtExprArg
 ;
 stmtExprArg: stmtExpr { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,$1); } }
 ;
-const: NUMBER { if(EXPECTED(isSyntaxData)) { SET_CONST_EXPR(&$$); } }
+const: NUMBER { if(EXPECTED(isSyntaxData)) { SET_NUM_EXPR(&$$); } }
  | STR { if(EXPECTED(isSyntaxData)) { SET_STR_EXPR(&$$); } }
 ;
 

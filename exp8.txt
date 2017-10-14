@@ -1,0 +1,12 @@
+func test() {
+	echo "funcname = ", __FUNC__, ", funclineno = ", __FLINE__, ", var = ", var, endl;
+}
+
+echo "filename = ", __FILE__, ", lineno = ", __LINE__, ", var = ", var, endl;
+
+test();
+
+list;
+
+result = runfile("exp" + 8 + "-runfile.txt");
+echo "runfile(filename) = ", result, endl;

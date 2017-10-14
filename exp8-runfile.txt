@@ -1,0 +1,3 @@
+echo "runfile(exp8.txt) = ", runfile("exp8.txt"), endl;
+ret 100;
+
