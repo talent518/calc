@@ -264,7 +264,7 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 }
 
 #ifdef DEBUG
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s) (" str ")", types[type-NULL_T],src->val);break
+#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s) (" str ")", types[type],src->val);break
 #else
 #define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
 #endif
@@ -698,12 +698,8 @@ void calc_run_array(exp_val_t *expr) {
 		expr->result->str->c = strndup(ptr->str->c+args->val.result->ival, 1);
 		expr->result->str->n = 1;
 	} else if (ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name, types[ptr->type]);
 	} else {
-		expr->result->type = INT_T;
-		expr->result->ival = 0;
-
-		exp_val_t val = {NULL_T};
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&args->val);
@@ -724,7 +720,6 @@ void calc_run_array(exp_val_t *expr) {
 					if(ptr->type == STR_T) goto str_array_access;
 					yyerror("An array of %s dimension bounds.\n", expr->call->name);
 				} else {
-					calc_free_expr(ptr);
 					memcpy_ref_expr(expr->result, ptr);
 				}
 				return;
@@ -780,7 +775,7 @@ void calc_run_func(exp_val_t *expr) {
 		tmpArgs = expr->call->args;
 		exp_val_t *p;
 		while (funcArgs) {
-			CNEW1(p, exp_val_t);
+			CNEW01(p, exp_val_t);
 			
 			if(tmpArgs) {
 				calc_run_expr(&tmpArgs->val);
@@ -1058,12 +1053,10 @@ void calc_run_sys_cos(exp_val_t *expr) {
 		return;
 	}
 	
-	exp_val_t val = {NULL_T};
-
 	calc_run_expr(&args->val);
 	calc_conv_to_double(args->val.result);
 	expr->result->type = DOUBLE_T;
-	expr->result->dval = cos(val.dval); // 余弦
+	expr->result->dval = cos(args->val.result->dval); // 余弦
 }
 
 void calc_run_sys_acos(exp_val_t *expr) {
@@ -1082,8 +1075,6 @@ void calc_run_sys_acos(exp_val_t *expr) {
 		return;
 	}
 	
-	exp_val_t val = {NULL_T};
-
 	calc_run_expr(&args->val);
 	calc_conv_to_double(args->val.result);
 	expr->result->type = DOUBLE_T;
@@ -1106,8 +1097,6 @@ void calc_run_sys_tan(exp_val_t *expr) {
 		return;
 	}
 	
-	exp_val_t val = {NULL_T};
-
 	calc_run_expr(&args->val);
 	calc_conv_to_double(args->val.result);
 	expr->result->type = DOUBLE_T;
@@ -1130,8 +1119,6 @@ void calc_run_sys_atan(exp_val_t *expr) {
 		return;
 	}
 	
-	exp_val_t val = {NULL_T};
-
 	calc_run_expr(&args->val);
 	calc_conv_to_double(args->val.result);
 	expr->result->type = DOUBLE_T;
@@ -1154,8 +1141,6 @@ void calc_run_sys_ctan(exp_val_t *expr) {
 		return;
 	}
 	
-	exp_val_t val = {NULL_T};
-
 	calc_run_expr(&args->val);
 	calc_conv_to_double(args->val.result);
 	expr->result->type = DOUBLE_T;
@@ -1324,7 +1309,7 @@ status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_sym_ret(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_expr(syms->expr);
 	
-	memcpy_ref_expr(ret, syms->expr);
+	memcpy_ref_expr(ret, syms->expr->result);
 	
 	return RET_STATUS;
 }
@@ -1437,10 +1422,9 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->var, strlen(syms->var->var), (void**)&ptr);
 	if (ptr) {
-		calc_free_expr(ptr);
 		memcpy_ref_expr(ptr, syms->val->result);
 	} else {
-		DNEW1(p, exp_val_t);
+		DNEW01(p, exp_val_t);
 		memcpy_ref_expr(p, syms->val->result);
 
 		zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), p, 0, NULL);
@@ -1455,7 +1439,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->call->name, strlen(syms->var->call->name), (void**)&ptr);
 	if (!ptr || ptr->type != ARRAY_T) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type - NULL_T]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type]);
 	} else {
 		register call_args_t *args = syms->var->call->args;
 
@@ -1478,8 +1462,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 				if (args->next) {
 					yyerror("An array of %s dimension bounds.\n", syms->var->call->name);
 				} else {
-					calc_free_expr(ptr);
-					memcpy_ref_expr(ptr, args->val.result);
+					memcpy_ref_expr(ptr, syms->val->result);
 				}
 				
 				return NONE_STATUS;

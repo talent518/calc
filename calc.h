@@ -301,6 +301,7 @@ void calc_free_vars(exp_val_t *expr);
 	}
 
 #define memcpy_ref_expr(dst, src) \
+	calc_free_expr(dst); \
 	memcpy(dst, src, sizeof(exp_val_t)); \
 	if(dst->type == STR_T) { \
 		dst->str->gc++; \
