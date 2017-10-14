@@ -150,7 +150,7 @@ switchStmt: nullCaseStmt %prec CASEX
 ;
 
 caseStmt: nullCaseStmt
- | DEFAULT ':' { if(EXPECTED(isSyntaxData)) { STMT($$,DEFAULT_STMT_T,cond,NULL);$$.syms->run = calc_run_sym_null; } }
+ | DEFAULT ':' { if(EXPECTED(isSyntaxData)) { STMT($$,DEFAULT_STMT_T,run,calc_run_sym_null); } }
 ;
 nullCaseStmt: CASE const ':' { if(EXPECTED(isSyntaxData)) { STMT($$,CASE_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$2);if($$.syms->cond->type != STR_T) {calc_conv_to_str($$.syms->cond);zend_hash_next_index_insert(&frees, $$.syms->cond->str, 0, NULL);zend_hash_next_index_insert(&frees, $$.syms->cond->str->c, 0, NULL);}$$.syms->run = calc_run_sym_null; } }
 ;
