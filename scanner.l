@@ -5,8 +5,6 @@
 
 #include "calc.h"
 
-int linenofunc;
-
 zend_always_inline void unescape(char *p) {
 	char *q = p;
 	while(*p) {
@@ -165,8 +163,8 @@ zend_always_inline void unescape(char *p) {
 "echo"                                         { return ECHO_T; }
 "list"                                         { return LIST; }
 "clear"                                        { return CLEAR; }
-"func"                                         { linenofunc = yylineno;return FUNC; }
-"function"                                     { linenofunc = yylineno;return FUNC; }
+"func"                                         { return FUNC; }
+"function"                                     { return FUNC; }
 "if"                                           { return IF; }
 "else"                                         { return ELSE; }
 "while"                                        { return WHILE; }
@@ -183,12 +181,17 @@ zend_always_inline void unescape(char *p) {
 "float"                                        { /* 忽略float关键字 */ }
 "double"                                       { /* 忽略double关键字 */ }
 "string"                                       { /* 忽略string关键字 */ }
-"RAND_MAX"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=LONG_T;yylval.lval=RAND_MAX;}  return CONST_RAND_MAX; }
-"PI"                                           { return CONST_PI; }
-"endl"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup("\n");yylval.str->n=1;yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);} return STR; }
+"NULL"                                         { if(EXPECTED(isSyntaxData)) {memset(&yylval, 0, sizeof(exp_val_t));} return NUMBER; }
+"__FUNC__"                                     { if(EXPECTED(isSyntaxData)) {if(!linenofuncname){memset(&yylval, 0, sizeof(exp_val_t));return NUMBER;}yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup(linenofuncname);yylval.str->n=strlen(linenofuncname);yylval.str->gc=1;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);}  return STR; }
+"__FLINE__"                                    { if(EXPECTED(isSyntaxData)) {yylval.type=INT_T;yylval.ival=linenofunc;} return NUMBER; }
+"__FILE__"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup(curFileName);yylval.str->n=strlen(curFileName);yylval.str->gc=1;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);}  return STR; }
+"__LINE__"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=INT_T;yylval.ival=yylineno;} return NUMBER; }
+"RAND_MAX"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=LONG_T;yylval.lval=RAND_MAX;} return NUMBER; }
+"PI"                                           { if(EXPECTED(isSyntaxData)) {yylval.type=DOUBLE_T;yylval.dval=atof("3.141592653589793238462643383279502884197169");} return NUMBER; }
+"endl"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup("\n");yylval.str->n=1;yylval.str->gc=1;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);} return STR; }
 ([0-9]+|[0-9]*\.[0-9]*)[FfDdIiLlRr]?           { if(EXPECTED(isSyntaxData)) {str2val(&yylval, yytext);} return NUMBER; }
-[a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.var=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.str, 0, NULL);yylval.run = calc_run_variable;} return VARIABLE; }
-\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str->c);yylval.str->n=strlen(yylval.str->c);yylval.str->gc=0;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL); return STR; }
+[a-zA-Z_][a-zA-Z0-9_]*                         { if(EXPECTED(isSyntaxData)) {yylval.type=VAR_T;yylval.var=strdup(yytext);zend_hash_next_index_insert(&frees, yylval.var, 0, NULL);yylval.run = calc_run_variable;} return VARIABLE; }
+\"([^"\\]|\\[xX][0-9a-fA-F][0-9a-fA-F]|\\[0-7][0-7][0-7]|\\['"?\\abfnrtv])*\" { yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strndup(yytext+1,strlen(yytext)-2);unescape(yylval.str->c);yylval.str->n=strlen(yylval.str->c);yylval.str->gc=1;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL); return STR; }
 "//"([^\n]+)                                   { /* 单行注释 */ }
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 

@@ -9,6 +9,7 @@ HashTable topFrees;
 HashTable results;
 func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
+int isolate = 1;
 int exitCode = 0;
 
 linenostack_t linenostack[1024]={{0,"TOP",NULL}};
@@ -375,6 +376,10 @@ void calc_func_def(func_def_f *def) {
 
 	def->filename = curFileName;
 	def->lineno = linenofunc;
+
+	linenofunc = 0;
+	linenofuncname = NULL;
+
 	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, 0, NULL) == FAILURE) {
 		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
 	}
@@ -409,9 +414,6 @@ void calc_run_variable(exp_val_t *expr) {
 		if(expr->result->type == ARRAY_T) {
 			expr->result->arr->gc++;
 		}
-	} else {
-		expr->result->type = INT_T;
-		expr->result->ival = 0;
 	}
 }
 
@@ -1261,19 +1263,8 @@ status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
 	register call_args_t *args = syms->args;
 	
 	while (args) {
-		switch (args->val.type) {
-			case STR_T:
-				printf("%s", args->val.str->c);
-				break;
-			case NULL_T:
-				printf("null");
-				break;
-			default: {
-				calc_run_expr(&args->val);
-				calc_echo(args->val.result);
-				break;
-			}
-		}
+		calc_run_expr(&args->val);
+		calc_echo(args->val.result);
 		args = args->next;
 	}
 	
@@ -1541,30 +1532,6 @@ void calc_free_vars(exp_val_t *expr) {
 	free(expr);
 }
 
-#define YYPARSE() \
-	do { \
-		frees.pDestructor = NULL; \
-		while((yret=yyparse()) && isSyntaxData) { \
-			if(yywrap()) { \
-				break; \
-			} \
-		} \
-		if(isSyntaxData) { \
-			memset(&expr, 0, sizeof(exp_val_t)); \
-			calc_run_syms(&expr, topSyms); \
-			calc_free_expr(&expr); \
-			zend_hash_clean(&topFrees); \
-			topSyms = NULL; \
-			if(isolate) { \
-				zend_hash_clean(&vars); \
-				zend_hash_clean(&funcs); \
-			} \
-		} \
-		while(yret && !yywrap()) {} \
-		zend_hash_clean(&files); \
-		frees.pDestructor = (dtor_func_t)free_frees; \
-	} while(0)
-
 void append_pool(void *ptr, dtor_func_t run) {
 	pool_t p = {ptr,run};
 
@@ -1603,9 +1570,7 @@ int main(int argc, char **argv) {
 		"    files...       from file input source code for multiple.\n" \
 		, argv[0])
 	if(argc > 1) {
-		register int i,yret;
-		register int isolate = 1;
-		exp_val_t expr;
+		register int i;
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
 				if(argv[i][1] && !argv[i][2]) {
@@ -1631,25 +1596,11 @@ int main(int argc, char **argv) {
 						EMPTY_SWITCH_DEFAULT_CASE()
 					}
 				} else {
-					yyrestart(stdin);
-					YYPARSE();
+					runfile("-");
 					break;
 				}
 			} else {
-				FILE *fp = fopen(argv[i], "r");
-				if(fp) {
-					dprintf("==========================\n");
-					dprintf("BEGIN INPUT: %s\n", argv[i]);
-					dprintf("--------------------------\n");
-					curFileName = argv[i];
-					yylineno = 1;
-					zend_hash_add(&files, argv[i], strlen(argv[i]), NULL, 0, NULL);
-					yyrestart(fp);
-					YYPARSE();
-					fclose(fp);
-				} else {
-					yyerror("File \"%s\" not found!\n", argv[i]);
-				}
+				runfile(argv[i]);
 			}
 		}
 	} else {
@@ -1667,6 +1618,55 @@ int main(int argc, char **argv) {
 	zend_hash_destroy(&frees);
 
 	return exitCode;
+}
+
+int runfile(char *filename) {
+	int yret, ret = 0;
+	FILE *fp = strcmp(filename, "-") ? fopen(filename, "r") : stdin;
+	if(!fp) {
+		yyerror("File \"%s\" not found!\n", filename);
+		return 1;
+	}
+	
+	dprintf("==========================\n");
+	dprintf("BEGIN INPUT: %s\n", filename);
+	dprintf("--------------------------\n");
+	curFileName = filename;
+	yylineno = 1;
+	zend_hash_add(&files, filename, strlen(filename), NULL, 0, NULL);
+
+	yyrestart(fp);
+	
+	frees.pDestructor = NULL;
+	while((yret=yyparse()) && isSyntaxData) {
+		ret |= yret;
+		
+		if(yywrap()) {
+			break;
+		}
+	}
+	
+	if(isSyntaxData) {
+		exp_val_t expr;
+		memset(&expr, 0, sizeof(exp_val_t));
+		calc_run_syms(&expr, topSyms);
+		calc_free_expr(&expr);
+		zend_hash_clean(&topFrees);
+		topSyms = NULL;
+		if(isolate) {
+			zend_hash_clean(&vars);
+			zend_hash_clean(&funcs);
+		}
+	}
+	while(yret && !yywrap()) {}
+	zend_hash_clean(&files);
+	frees.pDestructor = (dtor_func_t)free_frees;
+	
+	if(fp != stdin) {
+		fclose(fp);
+	}
+	
+	return yret | ret;
 }
 
 void yyerror(const char *s, ...) {

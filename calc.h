@@ -390,6 +390,7 @@ typedef struct _linenostack {
 extern linenostack_t linenostack[];
 extern int linenostacktop;
 extern int linenofunc;
+extern char *linenofuncname;
 
 void seed_rand();
 void yyerror(const char *s, ...);
@@ -419,6 +420,7 @@ extern unsigned int includeDeep;
 extern char *curFileName;
 extern FILE *yyin, *yyout;
 extern int isSyntaxData;
+extern int isolate;
 
 int yywrap();
 void yyrestart(FILE*);
@@ -442,6 +444,8 @@ zend_always_inline static double microtime() {
 
 	return (double)(tp.tv_sec + tp.tv_usec / 1000000.00);
 }
+
+int runfile(char *filename);
 
 #define YYERROR_VERBOSE 1
 #define YY_(s) s"\n"

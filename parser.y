@@ -24,7 +24,7 @@
 
 #define SET_EXPR_RESULT(dst) CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL)
 #define SET_CONST_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
-#define SET_STR_EXPR(dst) SET_CONST_EXPR(dst);(dst)->str->gc++;
+#define SET_STR_EXPR(dst) SET_CONST_EXPR(dst)
 
 void yypush_buffer_state ( void* );
 void* yy_create_buffer ( FILE *file, int size );
@@ -34,15 +34,16 @@ wrap_stack_t *tailWrapStack = NULL;
 unsigned int includeDeep = 0;
 char *curFileName = "-";
 
+int linenofunc = 0;
+char *linenofuncname = NULL;
+
 int zend_hash_apply_append_frees(void*, HashTable*);
 %}
 
 /* declare tokens */
-%token EOL
-%token CONST_PI NUMBER CONST_RAND_MAX
 %token LIST CLEAR
 %token CALL FUNC
-%token VARIABLE STR
+%token VARIABLE STR NUMBER
 %token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY FOR
 %token INC DEC
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ POWEQ
@@ -64,10 +65,10 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist FUNC VARIABLE '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $3.var;$$.def->args=NULL;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $3.var;$$.def->args=NULL;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $3.var;$$.def->args=$5.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist FUNC VARIABLE '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $3.var;$$.def->args=$5.defArgs;$$.def->syms=$8.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=NULL;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=NULL;$$.def->syms=$6.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
  | calclist INCLUDE STR ';' {
 	FILE *fp = fopen($3.str->c, "r");
@@ -106,7 +107,7 @@ calclist:
 	}*/
 }
 ;
-
+funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var; } }
 /************************ 函数参数语法 ************************/
 funcArgList:  funcArg
  | funcArgList ',' funcArg { if(EXPECTED(isSyntaxData)) { APPEND($$.defArgs,$3.defArgs); } }
@@ -216,12 +217,8 @@ stmtExprArgList: stmtExprArg
 ;
 stmtExprArg: stmtExpr { if(EXPECTED(isSyntaxData)) { CALL_ARGS($$.callArgs,$1); } }
 ;
-const: number { if(EXPECTED(isSyntaxData)) { SET_CONST_EXPR(&$$); } }
+const: NUMBER { if(EXPECTED(isSyntaxData)) { SET_CONST_EXPR(&$$); } }
  | STR { if(EXPECTED(isSyntaxData)) { SET_STR_EXPR(&$$); } }
-;
-number: NUMBER
- | CONST_RAND_MAX
- | CONST_PI { if(EXPECTED(isSyntaxData)) {$$.type=DOUBLE_T;$$.dval=atof("3.141592653589793238462643383279502884197169"); } } // PI
 ;
 
 %%
