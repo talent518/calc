@@ -302,7 +302,7 @@ void calc_free_expr(exp_val_t *expr);
 void calc_free_vars(exp_val_t *expr);
 
 #define calc_run_expr(expr) \
-	if((expr)->run) { \
+	if(EXPECTED((expr)->run!=NULL)) { \
 		(expr)->run((expr)); \
 	}
 

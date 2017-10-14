@@ -400,7 +400,7 @@ void calc_run_variable(exp_val_t *expr) {
 	exp_val_t *ptr = NULL;
 	
 	zend_hash_find(&vars, expr->var, strlen(expr->var), (void**)&ptr);
-	if (ptr) {
+	if (EXPECTED(ptr!=NULL)) {
 		expr->result = ptr;
 	} else {
 		CNEW01(expr->result, exp_val_t);
@@ -608,7 +608,7 @@ void calc_run_iif(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->cond);
 	calc_conv_to_double(expr->defExp->cond->result);
 
-	if (expr->defExp->cond->result->dval) {
+	if (EXPECTED(expr->defExp->cond->result->dval)) {
 		calc_run_expr(expr->defExp->left);
 		memcpy_ref_expr(expr->result, expr->defExp->left->result);
 	} else {
@@ -683,19 +683,19 @@ void calc_run_array(exp_val_t *expr) {
 	register int isref = 1;
 	
 	zend_hash_find(&vars, expr->call->name, strlen(expr->call->name), (void**)&ptr);
-	if(!ptr) {
+	if(UNEXPECTED(!ptr)) {
 		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name);
-	} else if (ptr->type == STR_T) {
+	} else if (UNEXPECTED(ptr->type == STR_T)) {
 		str_array_access:
 		EXPR_RESULT(expr);
-		if(args->next) {
+		if(UNEXPECTED(args->next!=NULL)) {
 			yyerror("An string of %s dimension bounds.\n", expr->call->name);
 			return;
 		}
 		
 		calc_run_expr(&args->val);
 		calc_conv_to_int(args->val.result);
-		if(args->val.result->ival<0 || args->val.result->ival>=ptr->str->n) {
+		if(UNEXPECTED(args->val.result->ival<0 || args->val.result->ival>=ptr->str->n)) {
 			yyerror("An string of %s index out of bounds.\n", expr->call->name);
 			return;
 		}
@@ -704,27 +704,27 @@ void calc_run_array(exp_val_t *expr) {
 		CNEW01(expr->result->str, string_t);
 		expr->result->str->c = strndup(ptr->str->c+args->val.result->ival, 1);
 		expr->result->str->n = 1;
-	} else if (ptr->type != ARRAY_T) {
+	} else if (UNEXPECTED(ptr->type != ARRAY_T)) {
 		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name, types[ptr->type]);
 	} else {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&args->val);
 			calc_conv_to_int(args->val.result);
-			if (args->val.result->ival < 0) {
+			if (UNEXPECTED(args->val.result->ival < 0)) {
 				args->val.result->ival = -args->val.result->ival;
 			}
 
-			if (args->val.result->ival >= ptr->arr->args[i]) {
+			if (UNEXPECTED(args->val.result->ival >= ptr->arr->args[i])) {
 				yyerror("An array of %s index out of bounds.\n", expr->call->name);
 				EXPR_RESULT(expr);
 				return;
 			}
 			ii += args->val.result->ival*n;
 			n *= ptr->arr->args[i];
-			if(++i  == ptr->arr->dims) {
+			if(UNEXPECTED(++i  == ptr->arr->dims)) {
 				ptr = &ptr->arr->array[ii];
-				if (args->next) {
+				if (UNEXPECTED(args->next!=NULL)) {
 					if(ptr->type == STR_T) goto str_array_access;
 					yyerror("An array of %s dimension bounds.\n", expr->call->name);
 					EXPR_RESULT(expr);
@@ -1338,7 +1338,7 @@ status_enum_t calc_run_sym_while(exp_val_t *ret, func_symbol_t *syms) {
 	status_enum_t status;
 	while (syms->cond->result->dval) {
 		status = calc_run_syms(ret, syms->lsyms);
-		if (status != NONE_STATUS) {
+		if (UNEXPECTED(status != NONE_STATUS)) {
 			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 
@@ -1354,7 +1354,7 @@ status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
 
 	do {
 		status = calc_run_syms(ret, syms->lsyms);
-		if (status != NONE_STATUS) {
+		if (UNEXPECTED(status != NONE_STATUS)) {
 			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 
@@ -1390,10 +1390,10 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 		calc_run_expr(&args->val);
 		calc_conv_to_int(args->val.result);
 
-		if (args->val.result->ival < 0) {
+		if (UNEXPECTED(args->val.result->ival < 0)) {
 			args->val.result->ival = -args->val.result->ival;
 		}
-		if(args->val.result->ival == 0) {
+		if(UNEXPECTED(args->val.result->ival == 0)) {
 			yyerror("When the array %s is defined, the superscript is not equal to zero.\n", syms->var->var);
 			return NONE_STATUS;
 		}
@@ -1431,7 +1431,7 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 
 	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->var, strlen(syms->var->var), (void**)&ptr);
-	if (ptr) {
+	if (EXPECTED(ptr!=NULL)) {
 		memcpy_ref_expr(ptr, syms->val->result);
 	} else {
 		DNEW01(p, exp_val_t);
@@ -1448,7 +1448,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 
 	calc_run_expr(syms->val);
 	zend_hash_find(&vars, syms->var->call->name, strlen(syms->var->call->name), (void**)&ptr);
-	if (!ptr || ptr->type != ARRAY_T) {
+	if (UNEXPECTED(!ptr || ptr->type != ARRAY_T)) {
 		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type]);
 	} else {
 		register call_args_t *args = syms->var->call->args;
@@ -1457,19 +1457,19 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 		while (args) {
 			calc_run_expr(&args->val);
 			calc_conv_to_int(args->val.result);
-			if (args->val.result->ival < 0) {
+			if (UNEXPECTED(args->val.result->ival < 0)) {
 				args->val.result->ival = -args->val.result->ival;
 			}
 
-			if (args->val.result->ival >= ptr->arr->args[i]) {
+			if (UNEXPECTED(args->val.result->ival >= ptr->arr->args[i])) {
 				yyerror("An array of %s index out of bounds.\n", syms->var->call->name);
 				return NONE_STATUS;
 			}
 			ii += args->val.result->ival*n;
 			n *= ptr->arr->args[i];
-			if(++i == ptr->arr->dims) {
+			if(UNEXPECTED(++i == ptr->arr->dims)) {
 				ptr = &ptr->arr->array[ii];
-				if (args->next) {
+				if (UNEXPECTED(args->next!=NULL)) {
 					yyerror("An array of %s dimension bounds.\n", syms->var->call->name);
 				} else {
 					memcpy_ref_expr(ptr, syms->val->result);
@@ -1490,7 +1490,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 	calc_run_syms(ret, syms->lsyms);
 	
-	if(syms->cond->type == NULL_T) {
+	if(UNEXPECTED(syms->cond->type == NULL_T)) {
 		syms->cond->result->dval = 1;
 	} else {
 		calc_run_expr(syms->cond);
@@ -1500,13 +1500,13 @@ status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms) {
 	status_enum_t status;
 	while (syms->cond->result->dval) {
 		status = calc_run_syms(ret, syms->forSyms);
-		if (status != NONE_STATUS) {
+		if (UNEXPECTED(status != NONE_STATUS)) {
 			return status == RET_STATUS ? RET_STATUS : NONE_STATUS;
 		}
 		
 		calc_run_syms(ret, syms->rsyms);
 
-		if(syms->cond->type != NULL_T) {
+		if(EXPECTED(syms->cond->type != NULL_T)) {
 			calc_run_expr(syms->cond);
 			calc_conv_to_double(syms->cond->result);
 		}
@@ -1529,7 +1529,7 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 	register status_enum_t status;
 
-	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
+	if(UNEXPECTED(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t))) {
 		yyerror("stack overflow.\n");
 		return NONE_STATUS;
 	}
@@ -1542,7 +1542,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 		linenostack[linenostacktop].filename = syms->filename;
 		
 		status = syms->run(ret, syms);
-		if(status != NONE_STATUS) {
+		if(EXPECTED(status != NONE_STATUS)) {
 			linenostacktop--;
 			return status;
 		}
