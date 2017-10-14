@@ -126,7 +126,7 @@ calclist:
 include: INCLUDE STR ';' { $$=$2; }
  | INCLUDE '(' STR ')' ';' { $$=$3; }
 ;
-funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var; } }
+funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var->c; } }
 ;
 /************************ 函数参数语法 ************************/
 funcArgList:  funcArg

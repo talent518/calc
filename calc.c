@@ -264,7 +264,7 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 }
 
 #ifdef DEBUG
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s) (" str ")", types[type],src->val);break
+#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s)(" str ")", types[type],src->val);break
 #else
 #define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
 #endif
@@ -320,10 +320,10 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 	return result;
 }
 
-void calc_func_print(func_def_f *def) {
+zend_always_inline void calc_func_print(func_def_f *def) {
 	smart_string buf = {NULL, 0, 0};
 
-	smart_string_appends(&buf, def->name);
+	smart_string_appendl(&buf, def->name->c, def->name->n);
 	smart_string_appendc(&buf, '(');
 
 	def->argc = 0;
@@ -335,7 +335,7 @@ void calc_func_print(func_def_f *def) {
 			if(def->argc) {
 				smart_string_appends(&buf, ", ");
 			}
-			smart_string_appends(&buf, args->name);
+			smart_string_appendl(&buf, args->name->c, args->name->n);
 			if (args->val.type != VAR_T) {
 				smart_string_appendc(&buf, '=');
 				calc_sprintf(&buf, &args->val);
@@ -374,7 +374,7 @@ void calc_func_def(func_def_f *def) {
 	linenofunc = 0;
 	linenofuncname = NULL;
 
-	if(def->names && zend_hash_add(&funcs, def->name, strlen(def->name), def, 0, NULL) == FAILURE) {
+	if(def->names && zend_hash_quick_add(&funcs, def->name->c, def->name->n, def->name->h, def, 0, NULL) == FAILURE) {
 		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
 	}
 }
@@ -399,12 +399,12 @@ void calc_free_func(func_def_f *def) {
 void calc_run_variable(exp_val_t *expr) {
 	exp_val_t *ptr = NULL;
 	
-	zend_hash_find(&vars, expr->var, strlen(expr->var), (void**)&ptr);
+	zend_hash_quick_find(&vars, expr->var->c, expr->var->n, expr->var->h, (void**)&ptr);
 	if (EXPECTED(ptr!=NULL)) {
 		expr->result = ptr;
 	} else {
 		CNEW01(expr->result, exp_val_t);
-		zend_hash_update(&vars, expr->var, strlen(expr->var), expr->result, 0, NULL);
+		zend_hash_quick_update(&vars, expr->var->c, expr->var->n, expr->var->h, expr->result, 0, NULL);
 	}
 }
 
@@ -682,21 +682,21 @@ void calc_run_array(exp_val_t *expr) {
 	register call_args_t *args = expr->call->args;
 	register int isref = 1;
 	
-	zend_hash_find(&vars, expr->call->name, strlen(expr->call->name), (void**)&ptr);
+	zend_hash_quick_find(&vars, expr->call->name->c, expr->call->name->n, expr->call->name->h, (void**)&ptr);
 	if(UNEXPECTED(!ptr)) {
-		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name);
+		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name->c);
 	} else if (UNEXPECTED(ptr->type == STR_T)) {
 		str_array_access:
 		EXPR_RESULT(expr);
 		if(UNEXPECTED(args->next!=NULL)) {
-			yyerror("An string of %s dimension bounds.\n", expr->call->name);
+			yyerror("An string of %s dimension bounds.\n", expr->call->name->c);
 			return;
 		}
 		
 		calc_run_expr(&args->val);
 		calc_conv_to_int(args->val.result);
 		if(UNEXPECTED(args->val.result->ival<0 || args->val.result->ival>=ptr->str->n)) {
-			yyerror("An string of %s index out of bounds.\n", expr->call->name);
+			yyerror("An string of %s index out of bounds.\n", expr->call->name->c);
 			return;
 		}
 		
@@ -705,7 +705,7 @@ void calc_run_array(exp_val_t *expr) {
 		expr->result->str->c = strndup(ptr->str->c+args->val.result->ival, 1);
 		expr->result->str->n = 1;
 	} else if (UNEXPECTED(ptr->type != ARRAY_T)) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name, types[ptr->type]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name->c, types[ptr->type]);
 	} else {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
@@ -716,7 +716,7 @@ void calc_run_array(exp_val_t *expr) {
 			}
 
 			if (UNEXPECTED(args->val.result->ival >= ptr->arr->args[i])) {
-				yyerror("An array of %s index out of bounds.\n", expr->call->name);
+				yyerror("An array of %s index out of bounds.\n", expr->call->name->c);
 				EXPR_RESULT(expr);
 				return;
 			}
@@ -726,7 +726,7 @@ void calc_run_array(exp_val_t *expr) {
 				ptr = &ptr->arr->array[ii];
 				if (UNEXPECTED(args->next!=NULL)) {
 					if(ptr->type == STR_T) goto str_array_access;
-					yyerror("An array of %s dimension bounds.\n", expr->call->name);
+					yyerror("An array of %s dimension bounds.\n", expr->call->name->c);
 					EXPR_RESULT(expr);
 				} else {
 					expr->result = ptr;
@@ -737,7 +737,7 @@ void calc_run_array(exp_val_t *expr) {
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency.\n", expr->call->name);
+		yyerror("Array %s dimension deficiency.\n", expr->call->name->c);
 		EXPR_RESULT(expr);
 	}
 }
@@ -755,7 +755,7 @@ void calc_run_func(exp_val_t *expr) {
 		return;
 	}
 	
-	zend_hash_find(&funcs, expr->call->name, strlen(expr->call->name), (void**)&def);
+	zend_hash_quick_find(&funcs, expr->call->name->c, expr->call->name->n, expr->call->name->h, (void**)&def);
 	if (def) {
 		tmpArgs = expr->call->args;
 		while(tmpArgs) {
@@ -765,7 +765,7 @@ void calc_run_func(exp_val_t *expr) {
 		}
 
 		if (argc > def->argc || argc < def->minArgc) {
-			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->call->name, def->argc, def->minArgc, argc);
+			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->call->name->c, def->argc, def->minArgc, argc);
 		}
 
 		HashTable tmpVars = vars;
@@ -776,7 +776,7 @@ void calc_run_func(exp_val_t *expr) {
 		#ifndef NO_FUNC_RUN_ARGS
 			smart_string buf = {NULL, 0, 0};
 
-			smart_string_appends(&buf, def->name);
+			smart_string_appendl(&buf, def->name->c, def->name->n);
 			smart_string_appendc(&buf, '(');
 
 			argc = 0;
@@ -801,7 +801,7 @@ void calc_run_func(exp_val_t *expr) {
 				calc_run_expr(&funcArgs->val);
 				memcpy_ref_expr(p, funcArgs->val.result);
 			}
-			zend_hash_update(&vars, funcArgs->name, strlen(funcArgs->name), p, 0, NULL);
+			zend_hash_quick_update(&vars, funcArgs->name->c, funcArgs->name->n, funcArgs->name->h, p, 0, NULL);
 			funcArgs = funcArgs->next;
 			#ifndef NO_FUNC_RUN_ARGS
 				argc++;
@@ -823,14 +823,14 @@ void calc_run_func(exp_val_t *expr) {
 			while(tmpArgs) {
 				ptr = NULL;
 
-				zend_hash_find(&tmpVars, tmpArgs->val.var, strlen(tmpArgs->val.var), (void**)&ptr);
+				zend_hash_quick_find(&tmpVars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, (void**)&ptr);
 				if(ptr) {
-					CNEW1(p, exp_val_t);
+					CNEW01(p, exp_val_t);
 					memcpy_ref_expr(p, ptr);
 					ptr = NULL;
-					zend_hash_update(&vars, tmpArgs->val.var, strlen(tmpArgs->val.var), p, 0, (void**)&ptr);
+					zend_hash_quick_update(&vars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, p, 0, (void**)&ptr);
 					if(ptr) {
-						yyerror("global variable \"%s\" and function parameter conflict.\n", tmpArgs->val.var);
+						yyerror("global variable \"%s\" and function parameter conflict.\n", tmpArgs->val.var->c);
 					}
 				}
 				tmpArgs = tmpArgs->next;
@@ -864,11 +864,11 @@ void calc_run_func(exp_val_t *expr) {
 			while(tmpArgs) {
 				ptr = NULL;
 
-				zend_hash_find(&vars, tmpArgs->val.var, strlen(tmpArgs->val.var), (void**)&ptr);
+				zend_hash_quick_find(&vars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, (void**)&ptr);
 				if(ptr) {
-					CNEW1(p, exp_val_t);
+					CNEW01(p, exp_val_t);
 					memcpy_ref_expr(p, ptr);
-					zend_hash_update(&tmpVars, tmpArgs->val.var, strlen(tmpArgs->val.var), p, 0, NULL);
+					zend_hash_quick_update(&tmpVars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, p, 0, NULL);
 				}
 				tmpArgs = tmpArgs->next;
 			}
@@ -881,7 +881,7 @@ void calc_run_func(exp_val_t *expr) {
 
 		linenostacktop--;
 	} else {
-		yyerror("undefined user function for %s.\n", expr->call->name);
+		yyerror("undefined user function for %s.\n", expr->call->name->c);
 	}
 }
 
@@ -907,14 +907,14 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function runfile(string str) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
 	calc_run_expr(&args->val);
 	
 	if(args->val.result->type != STR_T) {
-		yyerror("The system function %s parameter not string type.\n", expr->call->name);
+		yyerror("The system function runfile(string str) parameter not string type.\n");
 	}
 	
 	func_symbol_t *tmpTopSyms = topSyms;
@@ -959,7 +959,7 @@ void calc_run_sys_sqrt(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function sqrt(double num) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -990,7 +990,7 @@ void calc_run_sys_pow(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function pow(double base, double exp) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 
@@ -1015,7 +1015,7 @@ void calc_run_sys_sin(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function sin(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1037,7 +1037,7 @@ void calc_run_sys_asin(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function asin(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1059,7 +1059,7 @@ void calc_run_sys_cos(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function cos(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1081,7 +1081,7 @@ void calc_run_sys_acos(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function acos(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1103,7 +1103,7 @@ void calc_run_sys_tan(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function tan(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1125,7 +1125,7 @@ void calc_run_sys_atan(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function atan(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1147,7 +1147,7 @@ void calc_run_sys_ctan(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function ctan(double arg) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1169,7 +1169,7 @@ void calc_run_sys_rad(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function rad(double angle) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1190,7 +1190,7 @@ void calc_run_sys_rand(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function rand() the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1209,7 +1209,7 @@ void calc_run_sys_randf(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function randf() the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1230,7 +1230,7 @@ void calc_run_sys_strlen(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function strlen(string str) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1243,7 +1243,7 @@ void calc_run_sys_strlen(exp_val_t *expr) {
 		case VAR_T: {
 			ptr = NULL;
 
-			zend_hash_find(&vars, args->val.var, strlen(args->val.var), (void**)&ptr);
+			zend_hash_quick_find(&vars, args->val.var->c, args->val.var->n, args->val.var->h, (void**)&ptr);
 
 			if(ptr) {
 				if(ptr->type == STR_T) {
@@ -1278,7 +1278,7 @@ void calc_run_sys_microtime(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function microtime() the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1297,7 +1297,7 @@ void calc_run_sys_srand(exp_val_t *expr) {
 	}
 
 	if (expr->call->argc != argc) {
-		yyerror("The system function %s the number of parameters should be %d, the actual %d.\n", expr->call->name, expr->call->argc, argc);
+		yyerror("The system function srand() the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
@@ -1394,7 +1394,7 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 			args->val.result->ival = -args->val.result->ival;
 		}
 		if(UNEXPECTED(args->val.result->ival == 0)) {
-			yyerror("When the array %s is defined, the superscript is not equal to zero.\n", syms->var->var);
+			yyerror("When the array %s is defined, the superscript is not equal to zero.\n", syms->var->var->c);
 			return NONE_STATUS;
 		}
 		arr->arrlen *= args->val.result->ival;
@@ -1411,7 +1411,7 @@ status_enum_t calc_run_sym_array(exp_val_t *ret, func_symbol_t *syms) {
 	ptr->result = ptr;
 	ptr->run = NULL;
 	
-	zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), ptr, 0, NULL);
+	zend_hash_quick_update(&vars, syms->var->var->c, syms->var->var->n, syms->var->var->h, ptr, 0, NULL);
 	
 	return NONE_STATUS;
 }
@@ -1437,13 +1437,14 @@ status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms) {
 		calc_run_expr(syms->val); \
 		memcpy_ref_expr(ptr, syms->val->result); \
 	}
+
 status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t *ptr = NULL;
-	zend_hash_find(&vars, syms->var->var, strlen(syms->var->var), (void**)&ptr);
+	zend_hash_quick_find(&vars, syms->var->var->c, syms->var->var->n, syms->var->var->h, (void**)&ptr);
 	if (UNEXPECTED(ptr==NULL)) {
 		CNEW01(ptr, exp_val_t);
 		ptr->type = INT_T;
-		zend_hash_update(&vars, syms->var->var, strlen(syms->var->var), ptr, 0, NULL);
+		zend_hash_quick_update(&vars, syms->var->var->c, syms->var->var->n, syms->var->var->h, ptr, 0, NULL);
 	}
 	VAR_ACC();
 	return NONE_STATUS;
@@ -1452,9 +1453,9 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 	exp_val_t *ptr = NULL;
 
-	zend_hash_find(&vars, syms->var->call->name, strlen(syms->var->call->name), (void**)&ptr);
+	zend_hash_quick_find(&vars, syms->var->call->name->c, syms->var->call->name->n, syms->var->call->name->h, (void**)&ptr);
 	if (UNEXPECTED(!ptr || ptr->type != ARRAY_T)) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name, types[ptr->type]);
+		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name->c, types[ptr->type]);
 	} else {
 		register call_args_t *args = syms->var->call->args;
 
@@ -1467,7 +1468,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 			}
 
 			if (UNEXPECTED(args->val.result->ival >= ptr->arr->args[i])) {
-				yyerror("An array of %s index out of bounds.\n", syms->var->call->name);
+				yyerror("An array of %s index out of bounds.\n", syms->var->call->name->c);
 				return NONE_STATUS;
 			}
 			ii += args->val.result->ival*n;
@@ -1475,7 +1476,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 			if(UNEXPECTED(++i == ptr->arr->dims)) {
 				ptr = &ptr->arr->array[ii];
 				if (UNEXPECTED(args->next!=NULL)) {
-					yyerror("An array of %s dimension bounds.\n", syms->var->call->name);
+					yyerror("An array of %s dimension bounds.\n", syms->var->call->name->c);
 				} else {
 					VAR_ACC();
 				}
@@ -1486,7 +1487,7 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 			args = args->next;
 		}
 
-		yyerror("Array %s dimension deficiency.\n", syms->var->call->name);
+		yyerror("Array %s dimension deficiency.\n", syms->var->call->name->c);
 	}
 	
 	return NONE_STATUS;

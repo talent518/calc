@@ -102,8 +102,14 @@ typedef struct _func_def_f func_def_f;
 typedef void (*expr_run_func_t)(exp_val_t *expr);
 typedef status_enum_t (*sym_run_func_t)(exp_val_t *ret, func_symbol_t *syms);
 
+typedef struct {
+	char *c;
+	unsigned int n;
+	unsigned long int h;
+} var_t;
+
 struct _func_def_f {
-	char *name;
+	var_t *name;
 	unsigned char argc;
 	unsigned char minArgc;
 	char *names;
@@ -117,7 +123,7 @@ struct _func_def_f {
 typedef struct {
 	call_enum_f type;
 	unsigned char argc;
-	char *name;
+	var_t *name;
 	call_args_t *args;
 	HashTable *ht;
 } func_call_t;
@@ -149,7 +155,7 @@ struct _exp_val_t {
 		long int lval;
 		float fval;
 		double dval;
-		char *var;
+		var_t *var;
 		string_t *str;
 		array_t *arr;
 		struct _exp_val_t *ref;
@@ -171,7 +177,7 @@ struct _call_args_t {
 };
 
 struct _func_args_t {
-	char *name;
+	var_t *name;
 	exp_val_t val;
 	struct _func_args_t *next;
 	struct _func_args_t *tail;
@@ -235,7 +241,6 @@ void calc_conv_to_array(exp_val_t *src);
 void calc_echo(exp_val_t *src);
 void calc_sprintf(smart_string *buf, exp_val_t *src);
 void calc_print(char *p);
-void calc_func_print(func_def_f *def);
 void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
 void calc_free_syms(func_symbol_t *syms);
