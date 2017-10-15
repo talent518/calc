@@ -15,7 +15,7 @@ test: calc
 	@echo $@
 	@./calc exp.txt exp2.txt exp3.txt exp4.txt exp5.txt exp6.txt exp7.txt
 
-calc: parser.o scanner.o zend_hash.o calc.o
+calc: parser.o scanner.o zend_hash.o calc.o main.o
 	@echo $@
 	@$(CC) $(CC_FLAGS) -o $@ $? $(CL_FLAGS)
 	@sh -c "echo version '`./calc -v`'"

@@ -19,6 +19,158 @@ int linenostacktop = 0;
 
 char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
 
+void str2val(exp_val_t *val, char *str) {
+	int n=strlen(str);
+	switch(str[n-1]) {
+		case 'I':
+		case 'i':
+			val->type=INT_T;
+			val->ival = atol(str);
+			break;
+		case 'L':
+		case 'l':
+			val->type=LONG_T;
+			val->lval = atol(str);
+			break;
+		case 'F':
+		case 'f':
+			val->type=FLOAT_T;
+			val->fval = atof(str);
+			break;
+		case 'D':
+		case 'd':
+			val->type=DOUBLE_T;
+			val->dval = atof(str);
+			break;
+		case 'R':
+		case 'r':
+			val->type=DOUBLE_T;
+			val->dval = atof(str) * M_PI / 180.0;
+			break;
+		default:
+			if(strchr(str,'.')) {
+				double d = atof(str);
+				if(FLT_MIN <= d && d <= FLT_MAX) {
+					val->type = FLOAT_T;
+					val->fval = d;
+				} else {
+					val->type = DOUBLE_T;
+					val->dval = d;
+				}
+			} else {
+				long int i = atol(str);
+				if(INT_MIN <= i && i <= INT_MAX) {
+					val->type = INT_T;
+					val->ival = i;
+				} else {
+					val->type = LONG_T;
+					val->lval = i;
+				}
+			}
+			break;
+	}
+}
+
+void unescape(char *p) {
+	char *q = p;
+	while(*p) {
+		if(*p == '\\') {
+			p++;
+			switch(*p) {
+				case '\\':
+				case '"':
+					*(q++) = *(p++);
+					break;
+				case 'a':
+					*(q++) = '\a';
+					p++;
+					break;
+				case 'b':
+					*(q++) = '\b';
+					p++;
+					break;
+				case 'f':
+					*(q++) = '\f';
+					p++;
+					break;
+				case 'r':
+					*(q++) = '\r';
+					p++;
+					break;
+				case 'n':
+					*(q++) = '\n';
+					p++;
+					break;
+				case 't':
+					*(q++) = '\t';
+					p++;
+					break;
+				case 'v':
+					*(q++) = '\v';
+					p++;
+					break;
+				case 'x':
+				case 'X': {
+					int a[2] = {-1, -1};
+					char *t;
+					for(t = p+1; *t>0 && t<=p+2; t++) {
+						if(*t>='0' && *t<='9') {
+							a[t-p-1] = *t - '0';
+						} else if(*t>='a' && *t<='f') {
+							a[t-p-1] = *t - 'a' + 10;
+						} else if(*t>='A' && *t<='F') {
+							a[t-p-1] = *t - 'A' + 10;
+						} else {
+							break;
+						}
+					}
+					if(a[0] == -1 || a[1] == -1 || (a[0] == 0 && a[1] == 0)) {
+						*(q++) = '\\';
+						*(q++) =  *p;
+					} else {
+						*(q++) = ((a[0]<<4) | a[1]);
+						p+=3;
+					}
+					break;
+				}
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7': {
+					int a[3] = {-1, -1, -1};
+					char *t;
+					for(t = p; *t>0 && t<=p+2; t++) {
+						if(*t>='0' && *t<='7') {
+							a[t-p] = *t - '0';
+						} else {
+							break;
+						}
+					}
+					if(a[0] == -1 || a[1] == -1 || a[2] == -1 || (a[0] == 0 && a[1] == 0 && a[2] == 0)) {
+						*(q++) = '\\';
+						*(q++) =  *p;
+					} else {
+						*(q++) = ((a[0]<<6) | (a[1]<<3) | a[2]);
+						p+=3;
+					}
+					break;
+				}
+				default:
+					*(q++) = '\\';
+					*(q++) =  *p;
+					break;
+			}
+		} else {
+			*(q++) = *(p++);
+		}
+	}
+	*q = '\0';
+}
+
 void calc_conv_to_int(exp_val_t *src) {
 	switch(src->type) {
 		case INT_T: {
@@ -1596,90 +1748,6 @@ void append_pool(void *ptr, dtor_func_t run) {
 void zend_hash_destroy_ptr(HashTable *ht) {
 	zend_hash_destroy(ht);
 	free(ht);
-}
-void free_pools(pool_t *p) {
-	p->run(p->ptr);
-}
-
-int main(int argc, char **argv) {
-	zend_hash_init(&files, 2, NULL);
-	zend_hash_init(&frees, 20, NULL);
-	zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
-	zend_hash_init(&vars, 20, (dtor_func_t)calc_free_vars);
-	zend_hash_init(&funcs, 20, (dtor_func_t)calc_free_func);
-	zend_hash_init(&pools, 2, (dtor_func_t)free_pools);
-	zend_hash_init(&results, 20, (dtor_func_t)calc_free_vars);
-
-	#define USAGE() printf("Usage: %s { -v | -h | - | files.. }\n" \
-		"\n" \
-		"  author           zhang bao cai\n" \
-		"  email            talent518@yeah.net\n" \
-		"  git URL          https://github.com/talent518/calc.git\n" \
-		"\n" \
-		"  options:\n" \
-		"    -              from stdin input source code.\n" \
-		"    -v             Version number.\n" \
-		"    -h             This help.\n" \
-		"    -i             Isolate run.\n" \
-		"    -I             Not isolate run.\n" \
-		"    files...       from file input source code for multiple.\n" \
-		, argv[0])
-	if(argc > 1) {
-		register int i;
-		exp_val_t expr = {NULL_T};
-		for(i = 1; i<argc; i++) {
-			if(argv[i][0] == '-') {
-				if(argv[i][1] && !argv[i][2]) {
-					switch(argv[i][1]) {
-						case 'v':
-							printf("v1.1\n");
-							break;
-						case 'h':
-							USAGE();
-							break;
-						case 'i':
-							isolate = 1;
-							break;
-						case 'I':
-							isolate = 0;
-							break;
-						case 's':
-							isSyntaxData = 1;
-							break;
-						case 'S':
-							isSyntaxData = 0;
-							break;
-						EMPTY_SWITCH_DEFAULT_CASE()
-					}
-				} else {
-					runfile(&expr, "-", NULL, NULL);
-					break;
-				}
-			} else {
-				runfile(&expr, argv[i], NULL, NULL);
-			}
-		}
-
-		calc_free_expr(&expr);
-	} else {
-		USAGE();
-	}
-	
-	yylex_destroy();
-
-	zend_hash_destroy(&topFrees);
-	zend_hash_destroy(&files);
-	zend_hash_destroy(&vars);
-	zend_hash_destroy(&funcs);
-	zend_hash_destroy(&pools);
-	zend_hash_destroy(&results);
-	zend_hash_destroy(&frees);
-	
-	if(errmsg) {
-		free(errmsg);
-	}
-
-	return exitCode;
 }
 
 int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr) {

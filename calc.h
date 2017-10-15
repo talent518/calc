@@ -335,57 +335,8 @@ void calc_free_vars(exp_val_t *expr);
 		free_str(str); \
 	}
 
-zend_always_inline static void str2val(exp_val_t *val, char *str) {
-	int n=strlen(str);
-	switch(str[n-1]) {
-		case 'I':
-		case 'i':
-			val->type=INT_T;
-			val->ival = atol(str);
-			break;
-		case 'L':
-		case 'l':
-			val->type=LONG_T;
-			val->lval = atol(str);
-			break;
-		case 'F':
-		case 'f':
-			val->type=FLOAT_T;
-			val->fval = atof(str);
-			break;
-		case 'D':
-		case 'd':
-			val->type=DOUBLE_T;
-			val->dval = atof(str);
-			break;
-		case 'R':
-		case 'r':
-			val->type=DOUBLE_T;
-			val->dval = atof(str) * M_PI / 180.0;
-			break;
-		default:
-			if(strchr(str,'.')) {
-				double d = atof(str);
-				if(FLT_MIN <= d && d <= FLT_MAX) {
-					val->type = FLOAT_T;
-					val->fval = d;
-				} else {
-					val->type = DOUBLE_T;
-					val->dval = d;
-				}
-			} else {
-				long int i = atol(str);
-				if(INT_MIN <= i && i <= INT_MAX) {
-					val->type = INT_T;
-					val->ival = i;
-				} else {
-					val->type = LONG_T;
-					val->lval = i;
-				}
-			}
-			break;
-	}
-}
+void str2val(exp_val_t *val, char *str);
+void unescape(char *p);
 
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key);
