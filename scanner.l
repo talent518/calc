@@ -2,8 +2,8 @@
 %option lex-compat
 
 %{
-
 #include "calc.h"
+#include "parser.h"
 %}
 
 %%
@@ -57,6 +57,10 @@
 "ctan"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=CTAN_F;yylval.call->argc=1;yylval.run=calc_run_sys_ctan;} return CALL; }
 "sqrt"                                         { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=SQRT_F;yylval.call->argc=1;yylval.run=calc_run_sys_sqrt;} return CALL; }
 "strlen"                                       { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=STRLEN_F;yylval.call->argc=1;yylval.run=calc_run_sys_strlen;} return CALL; }
+"passthru"                                     { if(EXPECTED(isSyntaxData)) {yylval.type=FUNC_T;NEW_FREES(yylval.call, func_call_t);yylval.call->type=PASSTHRU_F;yylval.call->argc=0;yylval.run=calc_run_sys_passthru;} return CALL; }
+"go"                                           { return RUN; }
+"run"                                          { return RUN; }
+"exit"                                         { return EXIT; }
 "array"                                        { return ARRAY; }
 "global"                                       { return GLOBAL_T; }
 "ret"                                          { return RET; }
@@ -97,3 +101,9 @@
 [ \t\f\v\r\n]+                                 { /* 忽略空白 */ }
 
 %%
+
+YY_BUFFER_STATE yy_current_buffer() {
+	YY_CURRENT_BUFFER->yy_buf_pos = yy_c_buf_p + 1;
+	return YY_CURRENT_BUFFER;
+}
+

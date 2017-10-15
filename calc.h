@@ -16,14 +16,14 @@
 #include "smart_string.h"
 
 #define max(a, b) ((a)>(b) ? (a) : (b))
-#define NEW(t,n) (t*)malloc(sizeof(t)*n)
+#define NEW(t,n) (t*)malloc(sizeof(t)*(n))
 #define NEW1(t) NEW(t,1)
 #define CNEW(p,t,n) p = NEW(t,n)
-#define CNEW0(p,t,n) CNEW(p,t,n);memset(p,0,sizeof(t)*n)
+#define CNEW0(p,t,n) CNEW(p,t,n);memset(p,0,sizeof(t)*(n))
 #define CNEW1(p,t) CNEW(p,t,1)
 #define CNEW01(p,t) CNEW0(p,t,1)
 #define DNEW(p,t,n) t *p = NEW(t,n)
-#define DNEW0(p,t,n) DNEW(p,t,n);memset(p,0,sizeof(t)*n)
+#define DNEW0(p,t,n) DNEW(p,t,n);memset(p,0,sizeof(t)*(n))
 #define DNEW1(p,t) DNEW(p,t,1)
 #define DNEW01(p,t) DNEW0(p,t,1)
 
@@ -66,7 +66,7 @@ typedef enum _type_enum_t {
 } type_enum_t;
 
 typedef enum _call_enum_f {
-	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F, RUNFILE_F
+	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F, RUNFILE_F, PASSTHRU_F
 } call_enum_f;
 
 typedef enum _symbol_enum_t {
@@ -217,8 +217,6 @@ typedef struct _pool_t {
 extern func_symbol_t *topSyms;
 extern HashTable topFrees;
 extern HashTable results;
-extern int yylineno;
-extern int yyleng;
 extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
@@ -265,6 +263,7 @@ void calc_run_ne(exp_val_t *expr); // !=运算
 void calc_run_array(exp_val_t *expr); // 读取数组元素值
 void calc_run_func(exp_val_t *expr); // 执行用户函数
 void calc_run_sys_runfile(exp_val_t *expr);
+void calc_run_sys_passthru(exp_val_t *expr);
 void calc_run_sys_sqrt(exp_val_t *expr);
 void calc_run_sys_pow(exp_val_t *expr);
 void calc_run_sys_sin(exp_val_t *expr);
@@ -397,7 +396,9 @@ int yylex_destroy();
 void yypop_buffer_state(void);
 
 extern int exitCode;
-#define INTERRUPT(code, ...) exitCode = code; \
+#define EXIT_CODE_FUNC_EXISTS 1 // 函数已存在错误
+#define EXIT_CODE_FUNC_ERR_ARG 2 // 函数的有默认值参数后还存在无默认值参数
+#define ABORT(code, ...) exitCode = code; \
 	yyerror(__VA_ARGS__); \
 	if(!yywrap()) { \
 		yypop_buffer_state(); \
@@ -417,7 +418,4 @@ typedef void (*top_syms_run_before_func_t)(void *ptr);
 
 int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr);
 
-#define YYERROR_VERBOSE 1
-#define YY_(s) s"\n"
-#include "parser.h"
 #endif

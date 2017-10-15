@@ -3,6 +3,11 @@
 
 #include "calc.h"
 
+extern int yylineno;
+
+#define YYERROR_VERBOSE 1
+#define YY_(s) s"\n"
+
 #define MEMDUP_RESULT(dst, src) MEMDUP(dst,src,exp_val_t);SET_EXPR_RESULT(dst);
 
 #define CALL_ARGS(args,v) NEW_FREES(args, call_args_t);args->val=v;SET_EXPR_RESULT(&args->val);args->tail=args;args->next=NULL
@@ -41,6 +46,32 @@
 
 #define STR_FREE(str) str->gc=1;zend_hash_next_index_insert(&frees, str, 0, NULL);zend_hash_next_index_insert(&frees, str->c, 0, NULL)
 
+#define FUNC_DEF(def, n, a, s) \
+	NEW_FREES(def, func_def_f); \
+	def->name = n; \
+	def->names = NULL; \
+	def->args = a; \
+	def->syms = s; \
+	FUNC_MOVE_FREES(def); \
+	calc_func_def(def)
+
+#define RUN_SYMS(ret, isrun) \
+	if(EXPECTED(isSyntaxData)) { \
+		if(topSyms!=NULL) { \
+			if(yyin==stdin){ \
+				printf("\n=================================\n"); \
+			} \
+			memset(ret, 0, sizeof(exp_val_t)); \
+			calc_run_syms(ret, topSyms); \
+			calc_free_expr(ret); \
+			topSyms=NULL; \
+		} \
+		if(isrun && yyin==stdin){ \
+			printf("\n> "); \
+		} \
+	} \
+	yylineno=1 \
+
 exp_val_t run_expr_lr={NULL_T};
 exp_def_t run_expr_lr_def;
 void yypush_buffer_state ( void* );
@@ -54,6 +85,8 @@ char *curFileName = "-";
 int linenofunc = 0;
 char *linenofuncname = NULL;
 
+int isExitStmt = 0;
+
 int zend_hash_apply_append_frees(void*, HashTable*);
 %}
 
@@ -66,6 +99,7 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ POWEQ
 %token SWITCH CASE DEFAULT
 %token INCLUDE
+%token RUN EXIT
 
 %nonassoc UMINUS
 %nonassoc IFX
@@ -82,10 +116,12 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=NULL;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=NULL;$$.def->syms=$6.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=NULL;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
- | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { NEW_FREES($$.def, func_def_f);$$.def->name = $2.var;$$.def->args=$4.defArgs;$$.def->syms=$7.syms;FUNC_MOVE_FREES($$.def);calc_func_def($$.def); } }
+ | calclist funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $2.var, NULL, NULL); } }
+ | calclist funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $2.var, NULL, $6.syms); } }
+ | calclist funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $2.var, $4.defArgs, NULL); } }
+ | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $2.var, $4.defArgs, $7.syms); } }
+ | calclist RUN ';' { RUN_SYMS(&$1,1); }
+ | calclist EXIT { isExitStmt=1;RUN_SYMS(&$1,0);isExitStmt=0;if(yywrap()) YYACCEPT; }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
  | calclist include {
 	FILE *fp = NULL;
@@ -217,6 +253,10 @@ stmtExpr: const
  | '|' stmtExpr '|' { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LN($$,$2,abs)else{VAL_EXPR_LN($$, $2, ABS_T, abs);} } }
  | '(' stmtExpr ')' { if(EXPECTED(isSyntaxData)) { $$ = $2; } } // 括号
  | '-' stmtExpr %prec UMINUS { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LN($$,$2,minus)else{VAL_EXPR_LN($$, $2, MINUS_T, minus);} } }
+// | '!' stmtExpr %prec NOT { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LN($$,$2,not)else{VAL_EXPR_LN($$, $2, NOT_T, not);} } }
+// | stmtExpr AND stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR_rn($$,$1,$3,$2.run)else{VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run;} } }
+// | stmtExpr OR stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR_rn($$,$1,$3,$2.run)else{VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run;} } }
+// | stmtExpr XOR stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR_rn($$,$1,$3,$2.run)else{VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run;} } }
  | stmtExpr LOGIC stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR_rn($$,$1,$3,$2.run)else{VAL_EXPR_LR($$, $1, $3, $2.type);$$.run = $2.run;} } }
  | stmtExpr '*' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,mul)else{VAL_EXPR($$, $1, $3, MUL_T, mul);} } }
  | stmtExpr '/' stmtExpr { if(EXPECTED(isSyntaxData)) { RUN_EXPR_LR($$,$1,$3,div)else{VAL_EXPR($$, $1, $3, DIV_T, div);} } }

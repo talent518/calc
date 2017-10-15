@@ -26,7 +26,7 @@ parser.c: ./tools/bin/bison
 
 scanner.c: ./tools/bin/flex
 	@echo scanner.l
-	@./tools/bin/flex -o$@ scanner.l
+	@./tools/bin/flex --header-file=scanner.h --outfile=$@ scanner.l
 
 %.o: %.c
 	@echo $?

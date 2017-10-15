@@ -1,4 +1,9 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "calc.h"
+#include "parser.h"
+#include "scanner.h"
 
 HashTable pools;
 HashTable vars;
@@ -428,7 +433,15 @@ void calc_echo(exp_val_t *src) {
 		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
 		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
 		CALC_ECHO_DEF(src, DOUBLE_T, dval, "%.19lf");
-		CALC_ECHO_DEF(src, STR_T, str->c, "%s");
+		case STR_T:
+		#ifdef DEBUG
+			printf("(str:%d)(\"", src->str->n);
+		#endif
+			fwrite(src->str->c, 1, src->str->n, stdout);
+		#ifdef DEBUG
+			printf("\")");
+		#endif
+			break;
 		case ARRAY_T: {
 			calc_array_echo(src->arr, 1, 0, 0);
 			break;
@@ -472,63 +485,64 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 	return result;
 }
 
-zend_always_inline void calc_func_print(func_def_f *def) {
-	smart_string buf = {NULL, 0, 0};
-
-	smart_string_appendl(&buf, def->name->c, def->name->n);
-	smart_string_appendc(&buf, '(');
+void calc_func_def(func_def_f *def) {
+	if(zend_hash_quick_add(&funcs, def->name->c, def->name->n, def->name->h, def, 0, NULL) == FAILURE) {
+		ABORT(EXIT_CODE_FUNC_EXISTS, "The user function \"%s\" already exists.\n", def->names);
+		return;
+	}
 
 	def->argc = 0;
 	def->minArgc = 0;
-	unsigned errArgc = 0;
-	if (def->args) {
-		register func_args_t *args = def->args;
-		while (args) {
-			if(def->argc) {
-				smart_string_appends(&buf, ", ");
-			}
-			smart_string_appendl(&buf, args->name->c, args->name->n);
-			if (args->val.type != VAR_T) {
-				smart_string_appendc(&buf, '=');
-				calc_sprintf(&buf, &args->val);
-			}
-			if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
-				errArgc = def->argc;
-			}
-			def->argc++;
-			if (args->val.type == VAR_T) {
-				def->minArgc++;
-			}
-			args = args->next;
-		}
-	}
-	smart_string_appendc(&buf, ')');
-	smart_string_0(&buf);
-
-	def->names = buf.c;
-
-	dprintf("%s", def->names);
-	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
 	
-	if (errArgc) {
-		INTERRUPT(__LINE__, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
-	}
-}
+	if(def->names != NULL) {
+		unsigned errArgc = 0;
+	
+		dprintf("define function ");
+		smart_string buf = {NULL, 0, 0};
 
-void calc_func_def(func_def_f *def) {
-	dprintf("define function ");
-	calc_func_print(def);
-	dprintf("\n");
+		smart_string_appendl(&buf, def->name->c, def->name->n);
+		smart_string_appendc(&buf, '(');
+		if (def->args) {
+			register func_args_t *args = def->args;
+			while (args) {
+				if(def->argc) {
+					smart_string_appends(&buf, ", ");
+				}
+				smart_string_appendl(&buf, args->name->c, args->name->n);
+				if (args->val.type != VAR_T) {
+					smart_string_appendc(&buf, '=');
+					calc_sprintf(&buf, &args->val);
+				}
+				if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
+					errArgc = def->argc;
+				}
+				def->argc++;
+				if (args->val.type == VAR_T) {
+					def->minArgc++;
+				}
+				args = args->next;
+			}
+		}
+		smart_string_appendc(&buf, ')');
+		smart_string_0(&buf);
+
+		def->names = buf.c;
+
+		dprintf("%s", def->names);
+		dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
+	
+		if (errArgc) {
+			ABORT(EXIT_CODE_FUNC_ERR_ARG, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
+			return;
+		}
+		dprintf("\n");
+	}
 
 	def->filename = curFileName;
 	def->lineno = linenofunc;
 
 	linenofunc = 0;
 	linenofuncname = NULL;
-
-	if(def->names && zend_hash_quick_add(&funcs, def->name->c, def->name->n, def->name->h, def, 0, NULL) == FAILURE) {
-		INTERRUPT(__LINE__, "The user function \"%s\" already exists.\n", def->names);
-	}
 }
 
 void calc_free_args(call_args_t *args) {
@@ -564,6 +578,8 @@ void calc_run_variable(exp_val_t *expr) {
 void calc_run_add(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->left);
 	calc_run_expr(expr->defExp->right);
+
+	calc_free_expr(expr->result);
 
 	switch (max(expr->defExp->left->result->type, expr->defExp->right->result->type)) {
 		case INT_T: {
@@ -614,6 +630,8 @@ void calc_run_sub(exp_val_t *expr) {
 	
 	str2num(expr->defExp->left->result);
 	str2num(expr->defExp->right->result);
+
+	calc_free_expr(expr->result);
 	
 	switch (max(expr->defExp->left->result->type, expr->defExp->right->result->type)) {
 		case INT_T: {
@@ -651,6 +669,8 @@ void calc_run_mul(exp_val_t *expr) {
 	
 	str2num(expr->defExp->left->result);
 	str2num(expr->defExp->right->result);
+
+	calc_free_expr(expr->result);
 	
 	switch (max(expr->defExp->left->result->type, expr->defExp->right->result->type)) {
 		case INT_T: {
@@ -688,6 +708,8 @@ void calc_run_div(exp_val_t *expr) {
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
 
+	calc_free_expr(expr->result);
+
 	expr->result->type = DOUBLE_T;
 	if(expr->defExp->right->result->dval) {
 		expr->result->dval = expr->defExp->left->result->dval / expr->defExp->right->result->dval;
@@ -703,6 +725,8 @@ void calc_run_mod(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, long);
+
+	calc_free_expr(expr->result);
 
 	expr->result->type = LONG_T;
 	if(expr->defExp->right->result->lval) {
@@ -720,6 +744,8 @@ void calc_run_pow(exp_val_t *expr) {
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
 
+	calc_free_expr(expr->result);
+
 	expr->result->type = DOUBLE_T;
 	expr->result->dval = pow(expr->defExp->left->result->dval, expr->defExp->right->result->dval);
 }
@@ -729,6 +755,8 @@ void calc_run_abs(exp_val_t *expr) {
 	calc_run_expr(expr->ref);
 	
 	str2num(expr->ref->result);
+
+	calc_free_expr(expr->result);
 
 #define CALC_ABS_DEF(t,k) case t: expr->result->k=(expr->ref->result->k > 0 ? expr->ref->result->k : -expr->ref->result->k);expr->result->type = t;break
 	switch (expr->ref->result->type) {
@@ -744,6 +772,8 @@ void calc_run_abs(exp_val_t *expr) {
 // -ref
 void calc_run_minus(exp_val_t *expr) {
 	calc_run_expr(expr->ref);
+
+	calc_free_expr(expr->result);
 
 #define CALC_MINUS_DEF(t,k) case t: expr->result->k=-expr->ref->result->k;expr->result->type = t;break
 	switch (expr->ref->result->type) {
@@ -774,6 +804,8 @@ void calc_run_gt(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval > expr->defExp->right->result->dval;
@@ -784,6 +816,8 @@ void calc_run_lt(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval < expr->defExp->right->result->dval;
@@ -794,6 +828,8 @@ void calc_run_ge(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval >= expr->defExp->right->result->dval;
@@ -804,6 +840,8 @@ void calc_run_le(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval <= expr->defExp->right->result->dval;
@@ -814,6 +852,8 @@ void calc_run_eq(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval == expr->defExp->right->result->dval;
@@ -824,6 +864,8 @@ void calc_run_ne(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->right);
 	
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
+
+	calc_free_expr(expr->result);
 	
 	expr->result->type = INT_T;
 	expr->result->ival = expr->defExp->left->result->dval != expr->defExp->right->result->dval;
@@ -901,6 +943,9 @@ void calc_run_func(exp_val_t *expr) {
 	register call_args_t *tmpArgs = NULL;
 	register func_args_t *funcArgs;
 	register func_symbol_t *syms;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 
 	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
 		yyerror("stack overflow.\n");
@@ -1051,6 +1096,9 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1075,9 +1123,6 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	//zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
 	topSyms = NULL;
 	
-	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
-	
 	int _isolate = isolate;
 	isolate = 0;
 	int ret = runfile(expr->result, args->val.result->str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, expr->call->ht);
@@ -1090,8 +1135,6 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	tmpTopSyms = topSyms;
 	
 	if(ret) {
-		calc_free_expr(expr->result);
-		
 		expr->result->type = STR_T;
 		CNEW01(expr->result->str, string_t);
 		expr->result->str->c = strndup(errmsg, errmsglen);
@@ -1103,6 +1146,9 @@ void calc_run_sys_sqrt(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1134,6 +1180,9 @@ void calc_run_sys_pow(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1159,6 +1208,9 @@ void calc_run_sys_sin(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1181,6 +1233,9 @@ void calc_run_sys_asin(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1203,6 +1258,9 @@ void calc_run_sys_cos(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1225,6 +1283,9 @@ void calc_run_sys_acos(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1247,6 +1308,9 @@ void calc_run_sys_tan(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1269,6 +1333,9 @@ void calc_run_sys_atan(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1291,6 +1358,9 @@ void calc_run_sys_ctan(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1313,6 +1383,9 @@ void calc_run_sys_rad(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1334,6 +1407,9 @@ void calc_run_sys_rad(exp_val_t *expr) {
 void calc_run_sys_rand(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1353,6 +1429,9 @@ void calc_run_sys_rand(exp_val_t *expr) {
 void calc_run_sys_randf(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1374,6 +1453,9 @@ void calc_run_sys_strlen(exp_val_t *expr) {
 	call_args_t *args = expr->call->args;
 	register call_args_t *tmpArgs = expr->call->args;
 	exp_val_t *ptr;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1422,6 +1504,9 @@ void calc_run_sys_strlen(exp_val_t *expr) {
 void calc_run_sys_microtime(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1441,6 +1526,9 @@ void calc_run_sys_microtime(exp_val_t *expr) {
 void calc_run_sys_srand(exp_val_t *expr) {
 	register unsigned int argc = 0;
 	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1454,6 +1542,57 @@ void calc_run_sys_srand(exp_val_t *expr) {
 	}
 	
 	srand((unsigned int) microtime());
+}
+
+extern int isExitStmt;
+YY_BUFFER_STATE yy_current_buffer();
+void calc_run_sys_passthru(exp_val_t *expr) {
+	register unsigned int argc = 0;
+	register call_args_t *tmpArgs = expr->call->args;
+
+	calc_free_expr(expr->result);
+	memset(expr->result, 0, sizeof(exp_val_t));
+	
+	if(!isExitStmt || yyin==stdin) {
+		return;
+	}
+	
+	while(tmpArgs) {
+		argc++;
+		
+		tmpArgs = tmpArgs->next;
+	}
+
+	if (expr->call->argc != argc) {
+		yyerror("The system function passthru() the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
+		return;
+	}
+	
+	struct stat buf;
+	int ret = stat(curFileName, &buf);
+	if(ret) {
+		yyerror("The system function passthru() of stat(fd, struct stat *buf) return value is %d.\n", ret);
+	} else {
+		YY_BUFFER_STATE yybuf = yy_current_buffer();
+		char *p = yybuf->yy_buf_pos;
+		int n = yybuf->yy_n_chars - (p - yybuf->yy_ch_buf);
+		int nfile = buf.st_size - ftell(yyin);
+		DNEW01(str, string_t);
+		CNEW(str->c, char, n+nfile+1);
+		str->n = n+nfile;
+		memcpy(str->c, p, n);
+		
+		*(str->c+str->n) = '\0';
+		
+		p = str->c+n;
+		while(nfile>0 && (n=fread(p, 1, nfile, yyin))>0) {
+			p+=n;
+			nfile-=n;
+		}
+		
+		expr->result->type = STR_T;
+		expr->result->str = str;
+	}
 }
 
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
@@ -1685,7 +1824,9 @@ status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms) {
 }
 
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
-	register status_enum_t status;
+	if(EXPECTED(syms==NULL)) {
+		return NONE_STATUS;
+	}
 
 	if(UNEXPECTED(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t))) {
 		yyerror("stack overflow.\n");
@@ -1694,6 +1835,7 @@ status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms) {
 
 	linenostack[++linenostacktop].funcname = NULL;
 
+	register status_enum_t status;
 	while (syms) {
 		linenostack[linenostacktop].syms = syms;
 		linenostack[linenostacktop].lineno = syms->lineno;
@@ -1832,6 +1974,10 @@ void yyerror(const char *s, ...) {
 			fprintf(stderr, "%s(%d): \n", linenostack[i].filename, linenostack[i].lineno);
 		}
 
+		if(!strcmp(linenostack[i].filename, "-")) {
+			continue;
+		}
+		
 		fp = fopen(linenostack[i].filename, "r");
 		if(!fp) {
 			continue;

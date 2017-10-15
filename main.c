@@ -56,6 +56,7 @@ int main(int argc, char **argv) {
 						EMPTY_SWITCH_DEFAULT_CASE()
 					}
 				} else {
+					printf("> ");
 					runfile(&expr, "-", NULL, NULL);
 					break;
 				}
