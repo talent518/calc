@@ -109,15 +109,16 @@ typedef struct {
 } var_t;
 
 struct _func_def_f {
+	expr_run_func_t run;
 	var_t *name;
 	unsigned char argc;
 	unsigned char minArgc;
 	char *names;
 	func_args_t *args;
 	func_symbol_t *syms;
-	//HashTable frees;
 	unsigned int lineno;
 	char *filename;
+	//HashTable frees;
 };
 
 typedef struct {

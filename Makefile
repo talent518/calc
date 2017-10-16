@@ -1,6 +1,6 @@
 CC = gcc
 
-CC_FLAGS = -O3 -DYYSTYPE_IS_DECLARED $(CFLAGS)
+CC_FLAGS = -O3 -DYYSTYPE_IS_DECLARED -I. $(CFLAGS)
 CL_FLAGS = -lm $(LFLAGS)
 
 TOOLS_DIR = $(PWD)/tools
@@ -15,10 +15,13 @@ test: calc
 	@echo $@
 	@./calc exp.txt exp2.txt exp3.txt exp4.txt exp5.txt exp6.txt exp7.txt
 
-calc: parser.o scanner.o zend_hash.o calc.o main.o
+calc: parser.o scanner.o zend_hash.o calc.o ext.o main.o
 	@echo $@
-	@$(CC) $(CC_FLAGS) -o $@ $? $(CL_FLAGS)
+	@$(CC) $(CC_FLAGS) -o $@ $? ext/*/*.c $(CL_FLAGS)
 	@sh -c "echo version '`./calc -v`'"
+
+ext.c:
+	@sh ext.sh
 
 parser.c: ./tools/bin/bison
 	@echo parser.y
@@ -34,7 +37,7 @@ scanner.c: ./tools/bin/flex
 
 clean:
 	@echo $@
-	@rm -f calc calc.exe calc.exe.stackdump parser.c parser.h scanner.c *.o *.output
+	@rm -f calc calc.exe calc.exe.stackdump parser.c parser.h scanner.c *.o *.output ext.c
 
 ./tools/build:
 	@mkdir ./tools/build
@@ -60,4 +63,3 @@ clean:
 	@echo build flex
 	@sh -c "make ./tools/build/$(FLEX_FN)/Makefile"
 	@sh -c "cd ./tools/build/$(FLEX_FN) && make all install"
-

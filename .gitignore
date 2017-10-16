@@ -6,4 +6,6 @@ parser.h
 scanner.c
 *.o
 *.output
+scanner.h
+ext.c
 

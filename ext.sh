@@ -1,0 +1,1 @@
+find ext -type f | xargs grep -rin FUNC_DEF | awk -F : '{l=index($3,"(");r=index($3,")");files[$1]=1;funcs[substr($3,l+1,r-l-1)]=1;}END{for(k in files){print "#include \""k"\"";}for(k in funcs){print "void ext_funcs() {";print "    if(zend_hash_add(&funcs, \""k"\", "length(k)", &calc_def_"k", 0, NULL) == FAILURE) printf(\"function "k"() exists.\\n\");";print "}";}}' > ext.c

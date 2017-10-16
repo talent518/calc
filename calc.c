@@ -486,6 +486,7 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 }
 
 void calc_func_def(func_def_f *def) {
+	def->run = NULL;
 	if(zend_hash_quick_add(&funcs, def->name->c, def->name->n, def->name->h, def, 0, NULL) == FAILURE) {
 		ABORT(EXIT_CODE_FUNC_EXISTS, "The user function \"%s\" already exists.\n", def->names);
 		return;
@@ -557,6 +558,8 @@ void calc_free_args(call_args_t *args) {
 }
 
 void calc_free_func(func_def_f *def) {
+	if(def->run) return;
+	
 	free(def->names);
 
 	//zend_hash_destroy(&def->frees);
@@ -954,6 +957,11 @@ void calc_run_func(exp_val_t *expr) {
 	
 	zend_hash_quick_find(&funcs, expr->call->name->c, expr->call->name->n, expr->call->name->h, (void**)&def);
 	if (def) {
+		if(def->run) {
+			def->run(expr);
+			return;
+		}
+		
 		tmpArgs = expr->call->args;
 		while(tmpArgs) {
 			argc++;
@@ -1891,7 +1899,9 @@ void zend_hash_destroy_ptr(HashTable *ht) {
 	zend_hash_destroy(ht);
 	free(ht);
 }
-
+int apply_funcs(func_def_f *def) {
+	return def->run ? ZEND_HASH_APPLY_KEEP : ZEND_HASH_APPLY_REMOVE ;
+}
 int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr) {
 	int yret, ret = 0;
 	FILE *fp = stdin;
@@ -1945,7 +1955,7 @@ int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, 
 		topSyms = NULL;
 		if(isolate) {
 			zend_hash_clean(&vars);
-			zend_hash_clean(&funcs);
+			zend_hash_apply(&funcs, (apply_func_t)apply_funcs);
 		}
 	}
 	while(yret && !yywrap()) {}

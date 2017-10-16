@@ -19,6 +19,8 @@ void free_pools(pool_t *p) {
 	p->run(p->ptr);
 }
 
+void ext_funcs();
+
 int main(int argc, char **argv) {
 	zend_hash_init(&files, 2, NULL);
 	zend_hash_init(&frees, 20, NULL);
@@ -31,6 +33,8 @@ int main(int argc, char **argv) {
 	if(argc > 1) {
 		register int i;
 		exp_val_t expr = {NULL_T};
+		
+		ext_funcs();
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
 				if(argv[i][1] && !argv[i][2]) {
@@ -86,4 +90,3 @@ int main(int argc, char **argv) {
 
 	return exitCode;
 }
-
