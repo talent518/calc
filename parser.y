@@ -60,7 +60,7 @@ extern int yylineno;
 	if(EXPECTED(isSyntaxData)) { \
 		if(topSyms!=NULL) { \
 			if(yyin==stdin){ \
-				printf("\n=================================\n"); \
+				printf("\x1b[35m\n=================================\n\x1b[0m"); \
 			} \
 			memset(ret, 0, sizeof(exp_val_t)); \
 			calc_run_syms(ret, topSyms); \
@@ -68,7 +68,7 @@ extern int yylineno;
 			topSyms=NULL; \
 		} \
 		if(isrun && yyin==stdin){ \
-			printf("\n> "); \
+			printf("\x1b[35m\n=================================\n\x1b[0m> "); \
 		} \
 	} \
 	yylineno=1 \
