@@ -1702,9 +1702,8 @@ status_enum_t calc_run_sym_func(exp_val_t *ret, func_symbol_t *syms) {
 
 #define VAR_ACC() \
 	if(EXPECTED(syms->type==ACC_STMT_T)) { \
-		ptr->result = ptr; \
-		ptr->run = NULL; \
-		syms->val->defExp->left = ptr; \
+		syms->val->defExp->left->run = NULL; \
+		memcpy_ref_expr(syms->val->defExp->left->result, ptr); \
 		syms->val->result = ptr; \
 		calc_run_expr(syms->val); \
 	} else { \

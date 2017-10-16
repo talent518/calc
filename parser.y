@@ -12,7 +12,7 @@ extern int yylineno;
 
 #define CALL_ARGS(args,v) NEW_FREES(args, call_args_t);args->val=v;SET_EXPR_RESULT(&args->val);args->tail=args;args->next=NULL
 #define FUNC_ARGS(args,v) NEW_FREES(args, func_args_t);args->val=v;SET_EXPR_RESULT(&args->val);args->tail=args;args->next=NULL
-#define APPEND(args,val) if(args){args->tail->next=val;args->tail=val;}
+#define APPEND(args,val) if(val&&args){args->tail->next=val;args->tail=val;}else if(val){args=val;}
 #define STMT(o,t,k,v) NEW_FREES(o.syms, func_symbol_t);o.syms->type=t;o.syms->k=v;o.syms->lineno=yylineno;o.syms->filename=curFileName;o.syms->tail=o.syms;o.syms->next=NULL
 
 #define FUNC_MOVE_FREES(def) //zend_hash_init(&def->frees, zend_hash_num_elements(&frees), (dtor_func_t)free_frees);zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &def->frees)
@@ -60,7 +60,7 @@ extern int yylineno;
 	if(EXPECTED(isSyntaxData)) { \
 		if(topSyms!=NULL) { \
 			if(yyin==stdin){ \
-				printf("\x1b[35m\n=================================\n\x1b[0m"); \
+				printf("\x1b[35m=================================\n\x1b[0m"); \
 			} \
 			memset(ret, 0, sizeof(exp_val_t)); \
 			calc_run_syms(ret, topSyms); \
@@ -118,14 +118,18 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 
 /************************ 入口语法 ************************/
 calclist:
- | calclist funcDoc funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, NULL, NULL, $2.str); } }
- | calclist funcDoc funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, NULL, $7.syms, $2.str); } }
- | calclist funcDoc funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, $5.defArgs, NULL, $2.str); } }
- | calclist funcDoc funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, $5.defArgs, $8.syms, $2.str); } }
+ | calclist funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $3.str=NULL;FUNC_DEF($$.def, $2.var, NULL, NULL, $3.str); } }
+ | calclist funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $3.str=NULL;FUNC_DEF($$.def, $2.var, NULL, $6.syms, $3.str); } }
+ | calclist funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { $3.str=NULL;FUNC_DEF($$.def, $2.var, $4.defArgs, NULL, $3.str); } }
+ | calclist funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { $3.str=NULL;FUNC_DEF($$.def, $2.var, $4.defArgs, $7.syms, $3.str); } }
+ | calclist COMMENT funcName '(' ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, NULL, NULL, $2.str); } }
+ | calclist COMMENT funcName '(' ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, NULL, $7.syms, $2.str); } }
+ | calclist COMMENT funcName '(' funcArgList ')' '{' '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, $5.defArgs, NULL, $2.str); } }
+ | calclist COMMENT funcName '(' funcArgList ')' '{' funcStmtList '}' { if(EXPECTED(isSyntaxData)) { FUNC_DEF($$.def, $3.var, $5.defArgs, $8.syms, $2.str); } }
  | calclist CONST ';' { if(EXPECTED(isSyntaxData)) { printf("\x1b[34m--- list in consts(line: %d) ---\x1b[0m\n", yylineno);zend_hash_apply_with_arguments(&consts, (apply_func_args_t)calc_clear_or_list_vars, 1, ZEND_HASH_APPLY_KEEP);if(yyin==stdin) printf("\n> "); } }
  | calclist CONST STR ';' { if(EXPECTED(isSyntaxData)) { exp_val_t *ptr = NULL;zend_hash_find(&consts, $3.str->c, $3.str->n, (void**)&ptr);if(ptr){printf("\x1b[34m=========================\n");calc_echo(ptr);printf("\n=========================\n\x1b[0m");}else{printf("\x1b[34m=========================\n const %s not exists.\n=========================\n\x1b[0m", $3.var->c);}if(yyin==stdin) printf("\n> "); } }
  | calclist FUNC ';' { if(EXPECTED(isSyntaxData)) { printf("\x1b[34m--- list in funcs(line: %d) ---\x1b[0m\n", yylineno);zend_hash_apply(&funcs, (apply_func_t)calc_list_funcs);if(yyin==stdin) printf("\n> "); } }
- | calclist FUNC VARIABLE ';' { if(EXPECTED(isSyntaxData)) { func_def_f *def = NULL;zend_hash_quick_find(&funcs, $3.var->c, $3.var->n, $3.var->h, (void**)&def);if(def){printf("\x1b[34m=========================\n%s:\n%s\n=========================\n\x1b[0m", def->names, def->desc);}else{printf("\x1b[34m=========================\nfunction %s() not exists.\n=========================\n\x1b[0m", $3.var->c);}if(yyin==stdin) printf("\n> "); } }
+ | calclist FUNC VARIABLE ';' { if(EXPECTED(isSyntaxData)) { func_def_f *def = NULL;zend_hash_quick_find(&funcs, $3.var->c, $3.var->n, $3.var->h, (void**)&def);if(def){printf("\x1b[34m=========================\n%s:\n%s\n=========================\n\x1b[0m", def->names, def->desc?def->desc:" * return mixed.");}else{printf("\x1b[34m=========================\nfunction %s() not exists.\n=========================\n\x1b[0m", $3.var->c);}if(yyin==stdin) printf("\n> "); } }
  | calclist RUN ';' { RUN_SYMS(&$1,1); }
  | calclist EXIT { isExitStmt=1;RUN_SYMS(&$1,0);isExitStmt=0;if(yywrap()) YYACCEPT; }
  | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
@@ -167,9 +171,6 @@ calclist:
 ;
 include: INCLUDE STR ';' { $$=$2; }
  | INCLUDE '(' STR ')' ';' { $$=$3; }
-;
-funcDoc: COMMENT
- | { $$.str=NULL; }
 ;
 funcName: FUNC VARIABLE { if(EXPECTED(isSyntaxData)) { $$ = $2;linenofunc = yylineno;linenofuncname=$2.var->c; } }
 ;

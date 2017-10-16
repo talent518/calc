@@ -7,6 +7,6 @@ CONST_DOUBLE(DEMO_DOUBLE,4);
 CONST_STR_EX(DEMO_STR_EX,"demo test const.");
 CONST_STR(DEMO_STR,dstr);
 
-FUNC(demo, "demo()", "return: DEMO_STR_EX") {
+FUNC(demo, "demo()", " * @return str DEMO_STR_EX const.") {
 	memcpy_ref_expr(retval, &CONST(DEMO_STR_EX));
 }

@@ -12,15 +12,17 @@
 	"    -h               This help.\n" \
 	"    -i               Isolate run.\n" \
 	"    -I               Not isolate run.\n" \
+	"    -n               run before print file name.\n" \
 	"    --varname=varvalue  define a variable, variable name is varname, variable varvalue is value.\n" \
 	"    files...         from file input source code for multiple.\n" \
 	, argv[0])
 
 int main(int argc, char **argv) {
+	register int i, isfilename=0;
+
 	calc_init();
 	
 	if(argc > 1) {
-		register int i;
 		exp_val_t expr = {NULL_T}, *ptr;
 		
 		for(i = 1; i<argc; i++) {
@@ -60,6 +62,9 @@ int main(int argc, char **argv) {
 						case 'S':
 							isSyntaxData = 0;
 							break;
+						case 'n':
+							isfilename = 1;
+							break;
 						EMPTY_SWITCH_DEFAULT_CASE()
 					}
 				} else if(!argv[i][1]) {
@@ -71,6 +76,13 @@ int main(int argc, char **argv) {
 					break;
 				}
 			} else {
+				if(isfilename) {
+					printf("\x1b[36m");
+					printf("============================================================================\n");
+					printf("    run file: %s\n", argv[i]);
+					printf("============================================================================\n");
+					printf("\x1b[0m");
+				}
 				calc_runfile(&expr, argv[i], NULL, NULL);
 			}
 		}
