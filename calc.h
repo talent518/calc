@@ -44,6 +44,7 @@ typedef enum _type_enum_t {
 	DOUBLE_T, // 双精度型
 	STR_T, // 字符串
 	ARRAY_T, // 数组类型
+	PTR_T, // 指针类型
 	VAR_T, // 变量
 	FUNC_T, // 函数
 	FUNC_CALL_T, // 函数调用参数
@@ -143,6 +144,21 @@ typedef struct {
 	unsigned char dims; // 维数
 } array_t;
 
+typedef struct _ptr_t ptr_t;
+typedef void (*ptr_free_func_t)(ptr_t *ptr);
+
+struct _ptr_t {
+	unsigned int gc; // 垃圾回收计数
+	union {
+		void *ptr;
+		FILE *fptr;
+		int fp;
+		HashTable *ht;
+	};
+	char *desc;
+	ptr_free_func_t dtor;
+};
+
 typedef struct {
 	struct _exp_val_t *cond;
 	struct _exp_val_t *left;
@@ -166,6 +182,7 @@ struct _exp_val_t {
 		func_args_t *defArgs;
 		func_symbol_t *syms;
 		exp_def_t *defExp;
+		ptr_t *ptr;
 	};
 	struct _exp_val_t *result;
 	expr_run_func_t run;
@@ -222,6 +239,7 @@ extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
 extern HashTable pools;
+extern HashTable consts;
 
 void append_pool(void *ptr, dtor_func_t run);
 void zend_hash_destroy_ptr(HashTable *ht);
@@ -305,22 +323,21 @@ void calc_free_vars(exp_val_t *expr);
 		(expr)->run((expr)); \
 	}
 
-#define ptr_expr(dst, src) \
-	dst = src; \
-	ref_expr(dst, src)
-
-#define ref_expr(dst, src) \
-	if(dst->type == STR_T) { \
-		dst->str->gc++; \
+#define ref_expr(dst) \
+	if((dst)->type == STR_T) { \
+		(dst)->str->gc++; \
 	} \
-	if(dst->type == ARRAY_T) { \
-		dst->arr->gc++; \
+	if((dst)->type == ARRAY_T) { \
+		(dst)->arr->gc++; \
+	} \
+	if((dst)->type == PTR_T) { \
+		(dst)->ptr->gc++; \
 	}
 
 #define memcpy_ref_expr(dst, src) \
 	calc_free_expr(dst); \
 	memcpy(dst, src, sizeof(exp_val_t)); \
-	ref_expr(dst, src)
+	ref_expr(dst)
 
 #define str2num(val) \
 	if((val)->type == STR_T) { \
@@ -417,6 +434,7 @@ zend_always_inline static double microtime() {
 
 typedef void (*top_syms_run_before_func_t)(void *ptr);
 
-int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr);
-
+void calc_init();
+int calc_runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr);
+void calc_destroy();
 #endif

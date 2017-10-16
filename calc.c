@@ -12,6 +12,7 @@ HashTable files;
 HashTable frees;
 HashTable topFrees;
 HashTable results;
+HashTable consts;
 func_symbol_t *topSyms = NULL;
 int isSyntaxData = 1;
 int isolate = 1;
@@ -22,7 +23,7 @@ int errmsglen = 0;
 linenostack_t linenostack[1024]={{0,"TOP",NULL}};
 int linenostacktop = 0;
 
-char *types[] = { "NULL", "int", "long", "float", "double", "str", "array" };
+char *types[] = { "NULL", "int", "long", "float", "double", "str", "array", "ptr" };
 
 void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
@@ -204,9 +205,6 @@ void calc_conv_to_int(exp_val_t *src) {
 		}
 		default: {
 			calc_free_expr(src);
-			memset(src, 0, sizeof(exp_val_t));
-			src->result = src;
-			src->run = NULL;
 			break;
 		}
 	}
@@ -242,9 +240,6 @@ void calc_conv_to_long(exp_val_t *src) {
 		}
 		default: {
 			calc_free_expr(src);
-			memset(src, 0, sizeof(exp_val_t));
-			src->result = src;
-			src->run = NULL;
 			break;
 		}
 	}
@@ -279,9 +274,6 @@ void calc_conv_to_float(exp_val_t *src) {
 		}
 		default: {
 			calc_free_expr(src);
-			memset(src, 0, sizeof(exp_val_t));
-			src->result = src;
-			src->run = NULL;
 			break;
 		}
 	}
@@ -316,9 +308,6 @@ void calc_conv_to_double(exp_val_t *src) {
 		}
 		default: {
 			calc_free_expr(src);
-			memset(src, 0, sizeof(exp_val_t));
-			src->result = src;
-			src->run = NULL;
 			break;
 		}
 	}
@@ -948,7 +937,6 @@ void calc_run_func(exp_val_t *expr) {
 	register func_symbol_t *syms;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 
 	if(linenostacktop+1 == sizeof(linenostack)/sizeof(linenostack_t)) {
 		yyerror("stack overflow.\n");
@@ -1106,7 +1094,6 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1133,7 +1120,7 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 	
 	int _isolate = isolate;
 	isolate = 0;
-	int ret = runfile(expr->result, args->val.result->str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, expr->call->ht);
+	int ret = calc_runfile(expr->result, args->val.result->str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, expr->call->ht);
 	isolate = _isolate;
 	
 	zend_hash_apply_with_arguments(expr->call->ht, (apply_func_args_t)apply_delete, 1, &files);
@@ -1156,7 +1143,6 @@ void calc_run_sys_sqrt(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1190,7 +1176,6 @@ void calc_run_sys_pow(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1218,7 +1203,6 @@ void calc_run_sys_sin(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1243,7 +1227,6 @@ void calc_run_sys_asin(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1268,7 +1251,6 @@ void calc_run_sys_cos(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1293,7 +1275,6 @@ void calc_run_sys_acos(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1318,7 +1299,6 @@ void calc_run_sys_tan(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1343,7 +1323,6 @@ void calc_run_sys_atan(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1368,7 +1347,6 @@ void calc_run_sys_ctan(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1393,7 +1371,6 @@ void calc_run_sys_rad(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1417,7 +1394,6 @@ void calc_run_sys_rand(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1439,7 +1415,6 @@ void calc_run_sys_randf(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1463,7 +1438,6 @@ void calc_run_sys_strlen(exp_val_t *expr) {
 	exp_val_t *ptr;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1514,7 +1488,6 @@ void calc_run_sys_microtime(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1536,7 +1509,6 @@ void calc_run_sys_srand(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	while(tmpArgs) {
 		argc++;
@@ -1559,7 +1531,6 @@ void calc_run_sys_passthru(exp_val_t *expr) {
 	register call_args_t *tmpArgs = expr->call->args;
 
 	calc_free_expr(expr->result);
-	memset(expr->result, 0, sizeof(exp_val_t));
 	
 	if(!isExitStmt || yyin==stdin) {
 		return;
@@ -1873,15 +1844,30 @@ void calc_free_expr(exp_val_t *expr) {
 				}
 				free(expr->arr->array);
 				free(expr->arr);
+				expr->type = NULL_T;
+			}
+			break;
+		}
+		case PTR_T: {
+			dprintf("--- FreeVars: PTR_T(%u) ---\n", expr->arr->gc);
+			if(!(expr->ptr->gc--)) {
+				expr->ptr->dtor(expr->ptr);
+				expr->type = NULL_T;
 			}
 			break;
 		}
 		case STR_T: {
 			dprintf("--- FreeVars: STR_T(%u) ---\n", expr->str->gc);
+			if(expr->str->gc<=0) {
+				expr->type = NULL_T;
+			}
 			free_str(expr->str);
 			break;
 		}
-		EMPTY_SWITCH_DEFAULT_CASE()
+		default: {
+			expr->type = NULL_T;
+			break;
+		}
 	}
 }
 void calc_free_vars(exp_val_t *expr) {
@@ -1902,7 +1888,7 @@ void zend_hash_destroy_ptr(HashTable *ht) {
 int apply_funcs(func_def_f *def) {
 	return def->run ? ZEND_HASH_APPLY_KEEP : ZEND_HASH_APPLY_REMOVE ;
 }
-int runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr) {
+int calc_runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t before, void *ptr) {
 	int yret, ret = 0;
 	FILE *fp = stdin;
 	char filepath[1024] = "";
@@ -2100,5 +2086,41 @@ int yywrap() {
 		return 0;
 	} else {
 		return 1;
+	}
+}
+
+void free_pools(pool_t *p) {
+	p->run(p->ptr);
+}
+
+void ext_funcs();
+
+void calc_init() {
+	zend_hash_init(&files, 2, NULL);
+	zend_hash_init(&frees, 20, NULL);
+	zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
+	zend_hash_init(&vars, 20, (dtor_func_t)calc_free_vars);
+	zend_hash_init(&funcs, 20, (dtor_func_t)calc_free_func);
+	zend_hash_init(&pools, 2, (dtor_func_t)free_pools);
+	zend_hash_init(&results, 20, (dtor_func_t)calc_free_vars);
+	zend_hash_init(&consts, 20, (dtor_func_t)calc_free_vars);
+	
+	ext_funcs();
+}
+
+void calc_destroy() {
+	yylex_destroy();
+
+	zend_hash_destroy(&topFrees);
+	zend_hash_destroy(&files);
+	zend_hash_destroy(&vars);
+	zend_hash_destroy(&funcs);
+	zend_hash_destroy(&pools);
+	zend_hash_destroy(&results);
+	zend_hash_destroy(&frees);
+	zend_hash_destroy(&consts);
+	
+	if(errmsg) {
+		free(errmsg);
 	}
 }

@@ -15,26 +15,13 @@
 	"    files...       from file input source code for multiple.\n" \
 	, argv[0])
 
-void free_pools(pool_t *p) {
-	p->run(p->ptr);
-}
-
-void ext_funcs();
-
 int main(int argc, char **argv) {
-	zend_hash_init(&files, 2, NULL);
-	zend_hash_init(&frees, 20, NULL);
-	zend_hash_init(&topFrees, 20, (dtor_func_t)free_frees);
-	zend_hash_init(&vars, 20, (dtor_func_t)calc_free_vars);
-	zend_hash_init(&funcs, 20, (dtor_func_t)calc_free_func);
-	zend_hash_init(&pools, 2, (dtor_func_t)free_pools);
-	zend_hash_init(&results, 20, (dtor_func_t)calc_free_vars);
+	calc_init();
 	
 	if(argc > 1) {
 		register int i;
 		exp_val_t expr = {NULL_T};
 		
-		ext_funcs();
 		for(i = 1; i<argc; i++) {
 			if(argv[i][0] == '-') {
 				if(argv[i][1] && !argv[i][2]) {
@@ -61,11 +48,11 @@ int main(int argc, char **argv) {
 					}
 				} else {
 					printf("> ");
-					runfile(&expr, "-", NULL, NULL);
+					calc_runfile(&expr, "-", NULL, NULL);
 					break;
 				}
 			} else {
-				runfile(&expr, argv[i], NULL, NULL);
+				calc_runfile(&expr, argv[i], NULL, NULL);
 			}
 		}
 
@@ -73,20 +60,8 @@ int main(int argc, char **argv) {
 	} else {
 		USAGE();
 	}
-	
-	yylex_destroy();
 
-	zend_hash_destroy(&topFrees);
-	zend_hash_destroy(&files);
-	zend_hash_destroy(&vars);
-	zend_hash_destroy(&funcs);
-	zend_hash_destroy(&pools);
-	zend_hash_destroy(&results);
-	zend_hash_destroy(&frees);
-	
-	if(errmsg) {
-		free(errmsg);
-	}
+	calc_destroy();
 
 	return exitCode;
 }
