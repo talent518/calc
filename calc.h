@@ -119,6 +119,7 @@ struct _func_def_f {
 	func_symbol_t *syms;
 	unsigned int lineno;
 	char *filename;
+	char *desc;
 	//HashTable frees;
 };
 
@@ -355,6 +356,7 @@ void calc_free_vars(exp_val_t *expr);
 void str2val(exp_val_t *val, char *str);
 void unescape(char *p);
 
+int calc_list_funcs(func_def_f *def);
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key);
 #define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)

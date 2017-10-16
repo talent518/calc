@@ -1,8 +1,9 @@
 btime = microtime();
 sum = 0L;
-i=1;
+i=1L;
 while(i<=1000000) {
 	sum += i;
 	i++;
 }
-echo "sum = ", sum, ", run time: ", microtime() - btime, endl;
+etime = microtime();
+echo "sum = ", sum, ", run time: ", etime - btime, endl;

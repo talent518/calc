@@ -457,15 +457,21 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 }
 #undef CALC_SPRINTF
 
+int calc_list_funcs(func_def_f *def) {
+	printf("\x1b[34m  %6s function %s\x1b[0m\n", def->run?"system":"user", def->names);
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
 	int result = va_arg(args, int);
 	char *key = strndup(hash_key->arKey, hash_key->nKeyLength);
 
 	printf("\x1b[34m");
 	if (result == ZEND_HASH_APPLY_KEEP) {
-		printf("    (%6s) %s = ", types[val->type], key);
+		printf("  (%6s) %s = ", types[val->type], key);
 	} else {
-		printf("    remove variable %s, type is %s, value is ", key, types[val->type]);
+		printf("  remove variable %s, type is %s, value is ", key, types[val->type]);
 	}
 	free(key);
 	calc_echo(val);
@@ -484,49 +490,47 @@ void calc_func_def(func_def_f *def) {
 	def->argc = 0;
 	def->minArgc = 0;
 	
-	if(def->names != NULL) {
-		unsigned errArgc = 0;
-	
-		dprintf("define function ");
-		smart_string buf = {NULL, 0, 0};
+	unsigned errArgc = 0;
 
-		smart_string_appendl(&buf, def->name->c, def->name->n);
-		smart_string_appendc(&buf, '(');
-		if (def->args) {
-			register func_args_t *args = def->args;
-			while (args) {
-				if(def->argc) {
-					smart_string_appends(&buf, ", ");
-				}
-				smart_string_appendl(&buf, args->name->c, args->name->n);
-				if (args->val.type != VAR_T) {
-					smart_string_appendc(&buf, '=');
-					calc_sprintf(&buf, &args->val);
-				}
-				if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
-					errArgc = def->argc;
-				}
-				def->argc++;
-				if (args->val.type == VAR_T) {
-					def->minArgc++;
-				}
-				args = args->next;
+	dprintf("define function ");
+	smart_string buf = {NULL, 0, 0};
+
+	smart_string_appendl(&buf, def->name->c, def->name->n);
+	smart_string_appendc(&buf, '(');
+	if (def->args) {
+		register func_args_t *args = def->args;
+		while (args) {
+			if(def->argc) {
+				smart_string_appends(&buf, ", ");
 			}
+			smart_string_appendl(&buf, args->name->c, args->name->n);
+			if (args->val.type != VAR_T) {
+				smart_string_appendc(&buf, '=');
+				calc_sprintf(&buf, &args->val);
+			}
+			if (!errArgc && def->argc != def->minArgc && args->val.type == VAR_T) {
+				errArgc = def->argc;
+			}
+			def->argc++;
+			if (args->val.type == VAR_T) {
+				def->minArgc++;
+			}
+			args = args->next;
 		}
-		smart_string_appendc(&buf, ')');
-		smart_string_0(&buf);
-
-		def->names = buf.c;
-
-		dprintf("%s", def->names);
-		dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
-	
-		if (errArgc) {
-			ABORT(EXIT_CODE_FUNC_ERR_ARG, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
-			return;
-		}
-		dprintf("\n");
 	}
+	smart_string_appendc(&buf, ')');
+	smart_string_0(&buf);
+
+	def->names = buf.c;
+
+	dprintf("%s", def->names);
+	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
+
+	if (errArgc) {
+		ABORT(EXIT_CODE_FUNC_ERR_ARG, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
+		return;
+	}
+	dprintf("\n");
 
 	def->filename = curFileName;
 	def->lineno = linenofunc;
@@ -2094,6 +2098,7 @@ void free_pools(pool_t *p) {
 }
 
 void ext_funcs();
+void ext_consts();
 
 void calc_init() {
 	zend_hash_init(&files, 2, NULL);
@@ -2103,8 +2108,9 @@ void calc_init() {
 	zend_hash_init(&funcs, 20, (dtor_func_t)calc_free_func);
 	zend_hash_init(&pools, 2, (dtor_func_t)free_pools);
 	zend_hash_init(&results, 20, (dtor_func_t)calc_free_vars);
-	zend_hash_init(&consts, 20, (dtor_func_t)calc_free_vars);
+	zend_hash_init(&consts, 20, NULL);
 	
+	ext_consts();
 	ext_funcs();
 }
 

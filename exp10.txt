@@ -1,0 +1,15 @@
+/**
+ * 有注释的函数测试
+ * @param int a
+ * @param str s
+ *
+ * @return str
+ */
+func test(a,s) {
+	ret a+s;
+}
+
+func;
+func test;
+
+echo "test() = ", test(1,"test"), endl;
