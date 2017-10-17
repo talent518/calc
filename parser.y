@@ -60,10 +60,14 @@ extern int yylineno;
 	if(EXPECTED(isSyntaxData)) { \
 		if(topSyms!=NULL) { \
 			if(yyin==stdin){ \
-				printf("\x1b[35m=================================\n\x1b[0m"); \
+				printf("\n\x1b[35m=================================\n\x1b[0m"); \
 			} \
 			memset(ret, 0, sizeof(exp_val_t)); \
-			calc_run_syms(ret, topSyms); \
+			if(calc_run_syms(ret, topSyms)==RET_STATUS && yyin==stdin) { \
+				printf("\x1b[36m\n---------------------------------\nret = "); \
+				calc_echo(ret); \
+				if(!isrun)printf("\n\x1b[0m"); \
+			} \
 			calc_free_expr(ret); \
 			topSyms=NULL; \
 		} \
@@ -210,7 +214,7 @@ stmtList: stmt
  | stmtList stmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$2.syms); } }
 ;
 stmt: forStmt ';'
- | RET stmtExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,RET_STMT_T,expr,NULL);MEMDUP_RESULT($$.syms->expr,&$2);$$.syms->run = calc_run_sym_ret; } }
+ | RET retExpr ';' { if(EXPECTED(isSyntaxData)) { STMT($$,RET_STMT_T,expr,NULL);MEMDUP_RESULT($$.syms->expr,&$2);$$.syms->run = calc_run_sym_ret; } }
  | IF '(' stmtExpr ')' stmt %prec IFX { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$3);$$.syms->lsyms=$5.syms;$$.syms->rsyms=NULL;$$.syms->run = calc_run_sym_if; } }
  | IF '(' stmtExpr ')' stmt ELSE stmt { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$3);$$.syms->lsyms=$5.syms;$$.syms->rsyms=$7.syms;$$.syms->run = calc_run_sym_if; } }
  | IF '(' stmtExpr ')' stmt ELSE '{' stmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,IF_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$3);$$.syms->lsyms=$5.syms;$$.syms->rsyms=$8.syms;$$.syms->run = calc_run_sym_if; } }
@@ -223,6 +227,9 @@ stmt: forStmt ';'
  | ARRAY VARIABLE arrayArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,ARRAY_STMT_T,args,$3.callArgs);MEMDUP_RESULT($$.syms->var,&$2);$$.syms->run = calc_run_sym_array; } }
  | SWITCH '(' stmtExpr ')' '{' switchStmtList '}' { if(EXPECTED(isSyntaxData)) { STMT($$,SWITCH_STMT_T,cond,NULL);MEMDUP_RESULT($$.syms->cond,&$3);$$.syms->lsyms=$6.syms;$$.syms->rsyms=NULL;func_symbol_t *syms = $6.syms;$$.syms->ht = (HashTable*)malloc(sizeof(HashTable));zend_hash_init($$.syms->ht, 2, NULL);while(syms){if(syms->type == CASE_STMT_T) zend_hash_add($$.syms->ht, syms->cond->str->c, syms->cond->str->n, syms->next, 0, NULL);if(syms->type == DEFAULT_STMT_T) $$.syms->rsyms = syms->next;syms = syms->next;}append_pool($$.syms->ht, (dtor_func_t)zend_hash_destroy_ptr);$$.syms->run = calc_run_sym_switch; } }
  | nullStmt ';'
+;
+retExpr: /* 空语句 */ { $$.type=NULL_T;$$.run=NULL; }
+ | stmtExpr
 ;
 nullStmt: /* 空语句 */ { $$.syms=NULL; }
 ;

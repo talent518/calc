@@ -27,18 +27,18 @@
 #define CONST(n) calc_const_##n
 #define CONST_DEF(n) extern exp_val_t CONST(n)
 
-#define CONST_EX(n,t,v) exp_val_t CONST(n) = { \
+#define CONST_EX(n,t,k,v) exp_val_t CONST(n) = { \
 		t, \
-		v \
+		{.k=v} \
 	}
 
-#define CONST_INT(n,v) CONST_EX(n,INT_T,.ival=(int)(v))
+#define CONST_INT(n,v) CONST_EX(n,INT_T,ival,v)
 
-#define CONST_LONG(n,v) CONST_EX(n,LONG_T,.lval=(long)(v))
+#define CONST_LONG(n,v) CONST_EX(n,LONG_T,lval,v)
 
-#define CONST_FLOAT(n,v) CONST_EX(n,FLOAT_T,.fval=(float)(v))
+#define CONST_FLOAT(n,v) CONST_EX(n,FLOAT_T,fval,v)
 
-#define CONST_DOUBLE(n,v) CONST_EX(n,DOUBLE_T,.dval=(double)(v))
+#define CONST_DOUBLE(n,v) CONST_EX(n,DOUBLE_T,dval,v)
 
 #define CONST_STR_EX(n,s) \
 	string_t calc_const_str_##n = { \
@@ -46,7 +46,7 @@
 		sizeof(s)-1, \
 		1 \
 	}; \
-	CONST_EX(n,STR_T,.str=(string_t*)&calc_const_str_##n)
+	CONST_EX(n,STR_T,str,&calc_const_str_##n)
 
 #define CONST_STR(n,s) CONST_STR_EX(n,#s)
 
