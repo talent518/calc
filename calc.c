@@ -778,12 +778,19 @@ void calc_run_pow(exp_val_t *expr) {
 	calc_run_expr(expr->defExp->left);
 	calc_run_expr(expr->defExp->right);
 	
+	type_enum_t type = max(expr->defExp->left->result->type, expr->defExp->right->result->type);
+
 	CALC_CONV_op(expr->defExp->left->result, expr->defExp->right->result, double);
 
 	calc_free_expr(expr->result);
 
-	expr->result->type = DOUBLE_T;
-	expr->result->dval = pow(expr->defExp->left->result->dval, expr->defExp->right->result->dval);
+	if(type>LONG_T) {
+		expr->result->type = DOUBLE_T;
+		expr->result->dval = pow(expr->defExp->left->result->dval, expr->defExp->right->result->dval);
+	} else {
+		expr->result->type = LONG_T;
+		expr->result->lval = (long int) pow(expr->defExp->left->result->dval, expr->defExp->right->result->dval);
+	}
 }
 
 // |ref|
@@ -1235,10 +1242,17 @@ void calc_run_sys_pow(exp_val_t *expr) {
 	calc_run_expr(&args->val);
 	calc_run_expr(&args->next->val);
 	
+	type_enum_t type = max(args->val.result->type, args->next->val.result->type);
+
 	CALC_CONV_op(args->val.result, args->next->val.result, double);
 
-	expr->result->type = DOUBLE_T;
-	expr->result->dval = pow(args->val.result->dval, args->next->val.result->dval);
+	if(type>LONG_T) {
+		expr->result->type = DOUBLE_T;
+		expr->result->dval = pow(args->val.result->dval, args->next->val.result->dval);
+	} else {
+		expr->result->type = LONG_T;
+		expr->result->lval = (long int) pow(args->val.result->dval, args->next->val.result->dval);
+	}
 }
 
 void calc_run_sys_sin(exp_val_t *expr) {
