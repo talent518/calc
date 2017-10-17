@@ -20,7 +20,9 @@
 		NULL, /* syms, */ \
 		__LINE__, /* lineno */ \
 		__FILE__, /* filename */ \
-		desc \
+		desc, \
+		0, /* varlen */ \
+		NULL /* vars */ \
 	}; \
 	void calc_run_sys_##n(exp_val_t *expr)
 

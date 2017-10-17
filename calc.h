@@ -114,6 +114,8 @@ struct _func_def_f {
 	unsigned int lineno;
 	char *filename;
 	char *desc;
+	unsigned int varlen; // global 变量数
+	var_t *vars; // global 变量指针
 	//HashTable frees;
 };
 

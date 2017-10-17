@@ -565,18 +565,61 @@ void calc_func_def(func_def_f *def) {
 
 	dprintf("%s", def->names);
 	dprintf(" argc = %d, minArgc = %d", def->argc, def->minArgc);
-
-	if (errArgc) {
-		ABORT(EXIT_CODE_FUNC_ERR_ARG, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
-		return;
-	}
 	dprintf("\n");
 
 	def->filename = curFileName;
 	def->lineno = linenofunc;
+	def->varlen = 0;
+
+	register func_symbol_t *syms = def->syms;
+	register call_args_t *tmpArgs = NULL;
+
+	while(syms) {
+		if(syms->type != GLOBAL_T) {
+			syms = syms->next;
+			continue;
+		}
+
+		tmpArgs = syms->args;
+		while(tmpArgs) {
+			def->varlen++;
+
+			tmpArgs = tmpArgs->next;
+		}
+
+		syms = syms->next;
+	}
+
+	register unsigned int i = 0;
+	if(def->varlen) {
+		CNEW(def->vars, var_t, def->varlen);
+		syms = def->syms;
+
+		while(syms) {
+			if(syms->type != GLOBAL_T) {
+				syms = syms->next;
+				continue;
+			}
+
+			tmpArgs = syms->args;
+			while(tmpArgs) {
+				def->vars[i++] = *tmpArgs->val.var;
+
+				tmpArgs = tmpArgs->next;
+			}
+
+			syms = syms->next;
+		}
+	} else {
+		def->vars = NULL;
+	}
 
 	linenofunc = 0;
 	linenofuncname = NULL;
+
+	if (errArgc) {
+		ABORT(EXIT_CODE_FUNC_ERR_ARG, "The user function %s the first %d argument not default value", def->names, errArgc + 1);
+	}
 }
 
 void calc_free_args(call_args_t *args) {
@@ -594,6 +637,8 @@ void calc_free_func(func_def_f *def) {
 	if(def->run) return;
 	
 	free(def->names);
+
+	if(def->vars) free(def->vars);
 
 	//zend_hash_destroy(&def->frees);
 }
@@ -1010,6 +1055,7 @@ void calc_run_func(exp_val_t *expr) {
 
 		if (argc > def->argc || argc < def->minArgc) {
 			yyerror("The custom function %s the number of parameters should be %d, at least %d, the actual %d.\n", expr->call->name->c, def->argc, def->minArgc, argc);
+			return;
 		}
 
 		HashTable tmpVars = vars;
@@ -1056,31 +1102,25 @@ void calc_run_func(exp_val_t *expr) {
 			smart_string_0(&buf);
 		#endif
 
-		syms = def->syms;
-		while(syms) {
-			if(syms->type != GLOBAL_T) {
-				syms = syms->next;
-				continue;
-			}
+		for(argc=0; argc<def->varlen; argc++) {
+			ptr = NULL;
 
-			tmpArgs = syms->args;
-			while(tmpArgs) {
-				ptr = NULL;
-
-				zend_hash_quick_find(&tmpVars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, (void**)&ptr);
-				if(ptr) {
-					CNEW01(p, exp_val_t);
-					memcpy_ref_expr(p, ptr);
-					ptr = NULL;
-					zend_hash_quick_update(&vars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, p, 0, (void**)&ptr);
-					if(ptr) {
-						yyerror("global variable \"%s\" and function parameter conflict.\n", tmpArgs->val.var->c);
-					}
+			zend_hash_quick_find(&tmpVars, def->vars[argc].c, def->vars[argc].n, def->vars[argc].h, (void**)&ptr);
+			if(ptr) {
+				CNEW01(p, exp_val_t);
+				memcpy_ref_expr(p, ptr);
+				if(zend_hash_quick_exists(&vars, def->vars[argc].c, def->vars[argc].n, def->vars[argc].h)) {
+					yyerror("global variable \"%s\" and function %s parameter conflict.\n", def->vars[argc].c,
+					#ifndef NO_FUNC_RUN_ARGS
+						buf.c
+					#else
+						def->names
+					#endif
+						);
+				} else {
+					zend_hash_quick_update(&vars, def->vars[argc].c, def->vars[argc].n, def->vars[argc].h, p, 0, NULL);
 				}
-				tmpArgs = tmpArgs->next;
 			}
-
-			syms = syms->next;
 		}
 
 		#ifndef NO_FUNC_RUN_ARGS
@@ -1097,27 +1137,15 @@ void calc_run_func(exp_val_t *expr) {
 			zend_hash_next_index_insert(&frees, buf.c, 0, NULL);
 		#endif
 
-		syms = def->syms;
-		while(syms) {
-			if(syms->type != GLOBAL_T) {
-				syms = syms->next;
-				continue;
+		for(argc=0; argc<def->varlen; argc++) {
+			ptr = NULL;
+
+			zend_hash_quick_find(&vars, def->vars[argc].c, def->vars[argc].n, def->vars[argc].h, (void**)&ptr);
+			if(ptr) {
+				CNEW01(p, exp_val_t);
+				memcpy_ref_expr(p, ptr);
+				zend_hash_quick_update(&tmpVars, def->vars[argc].c, def->vars[argc].n, def->vars[argc].h, p, 0, NULL);
 			}
-
-			tmpArgs = syms->args;
-			while(tmpArgs) {
-				ptr = NULL;
-
-				zend_hash_quick_find(&vars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, (void**)&ptr);
-				if(ptr) {
-					CNEW01(p, exp_val_t);
-					memcpy_ref_expr(p, ptr);
-					zend_hash_quick_update(&tmpVars, tmpArgs->val.var->c, tmpArgs->val.var->n, tmpArgs->val.var->h, p, 0, NULL);
-				}
-				tmpArgs = tmpArgs->next;
-			}
-
-			syms = syms->next;
 		}
 		zend_hash_destroy(&vars);
 
