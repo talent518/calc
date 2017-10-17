@@ -603,10 +603,11 @@ void calc_run_variable(exp_val_t *expr) {
 	
 	zend_hash_quick_find(&vars, expr->var->c, expr->var->n, expr->var->h, (void**)&ptr);
 	if (EXPECTED(ptr!=NULL)) {
-		expr->result = ptr;
+		memcpy_ref_expr(expr->result, ptr);
 	} else {
-		CNEW01(expr->result, exp_val_t);
-		zend_hash_quick_update(&vars, expr->var->c, expr->var->n, expr->var->h, expr->result, 0, NULL);
+		calc_free_expr(expr->result);
+		CNEW01(ptr, exp_val_t);
+		zend_hash_quick_update(&vars, expr->var->c, expr->var->n, expr->var->h, ptr, 0, NULL);
 	}
 }
 
@@ -919,12 +920,14 @@ void calc_run_array(exp_val_t *expr) {
 	register call_args_t *args = expr->call->args;
 	register int isref = 1;
 	
+	calc_free_expr(expr->result);
+
 	zend_hash_quick_find(&vars, expr->call->name->c, expr->call->name->n, expr->call->name->h, (void**)&ptr);
 	if(UNEXPECTED(!ptr)) {
 		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name->c);
 	} else if (UNEXPECTED(ptr->type == STR_T)) {
 		str_array_access:
-		EXPR_RESULT(expr);
+		
 		if(UNEXPECTED(args->next!=NULL)) {
 			yyerror("An string of %s dimension bounds.\n", expr->call->name->c);
 			return;
@@ -954,7 +957,6 @@ void calc_run_array(exp_val_t *expr) {
 
 			if (UNEXPECTED(args->val.result->ival >= ptr->arr->args[i])) {
 				yyerror("An array of %s index out of bounds.\n", expr->call->name->c);
-				EXPR_RESULT(expr);
 				return;
 			}
 			ii += args->val.result->ival*n;
@@ -964,9 +966,8 @@ void calc_run_array(exp_val_t *expr) {
 				if (UNEXPECTED(args->next!=NULL)) {
 					if(ptr->type == STR_T) goto str_array_access;
 					yyerror("An array of %s dimension bounds.\n", expr->call->name->c);
-					EXPR_RESULT(expr);
 				} else {
-					expr->result = ptr;
+					memcpy_ref_expr(expr->result, ptr);
 				}
 				return;
 			}
@@ -975,7 +976,6 @@ void calc_run_array(exp_val_t *expr) {
 		}
 
 		yyerror("Array %s dimension deficiency.\n", expr->call->name->c);
-		EXPR_RESULT(expr);
 	}
 }
 

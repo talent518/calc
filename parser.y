@@ -27,7 +27,7 @@ extern int yylineno;
 
 #define EXPR(n,t,k,v) exp_val_t n;n.type=t;n.k=v;SET_NUM_EXPR(&n)
 
-#define SET_EXPR_RESULT(dst) if((dst)->type==VAR_T&&(dst)->type==ARRAY_T){(dst)->result=NULL;}else{CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL);}
+#define SET_EXPR_RESULT(dst) CNEW01((dst)->result, exp_val_t);if((dst)->run==NULL){memcpy_ref_expr((dst)->result, (dst));}zend_hash_next_index_insert(&results, (dst)->result, 0, NULL)
 #define SET_NUM_EXPR(dst) (dst)->run = ((expr_run_func_t) NULL)
 #define SET_STR_EXPR(dst) SET_NUM_EXPR(dst)
 

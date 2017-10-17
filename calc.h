@@ -30,12 +30,6 @@
 #define NEW_FREES(dst, type) dst=NEW1(type);zend_hash_next_index_insert(&frees, dst, 0, NULL)
 #define MEMDUP(dst,src,type) NEW_FREES(dst, type);memcpy(dst,src,sizeof(type))
 
-#define EXPR_RESULT(expr) \
-	if(expr->result == NULL) { \
-			CNEW01(expr->result, exp_val_t); \
-			zend_hash_next_index_insert(&results, expr->result, 0, NULL); \
-		}
-
 typedef enum _type_enum_t {
 	NULL_T=0, // 空
 	INT_T, // 整型
