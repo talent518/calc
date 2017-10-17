@@ -523,7 +523,7 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 void calc_func_def(func_def_f *def) {
 	def->run = NULL;
 	if(zend_hash_quick_add(&funcs, def->name->c, def->name->n, def->name->h, def, 0, NULL) == FAILURE) {
-		ABORT(EXIT_CODE_FUNC_EXISTS, "The user function \"%s\" already exists.\n", def->names);
+		ABORT(EXIT_CODE_FUNC_EXISTS, "The user function %s() already exists.\n", def->name->c);
 		return;
 	}
 
