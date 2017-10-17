@@ -77,17 +77,17 @@ typedef struct {
 	__dest->len = __nl;												\
 } while (0)
 
-#define smart_string_append_generic(dest, num, type, vartype, func) do {	\
+#define smart_string_append_generic(dest, num, func) do {	\
 	char __b[32];															\
 	char *__t = zend_print##func##_to_buf(__b + sizeof(__b) - 1, (num));	\
-	smart_string_appendl((dest), __t, __b + sizeof(__b) - 1 - __t, (type));	\
+	smart_string_appendl((dest), __t, __b + sizeof(__b) - 1 - __t);	\
 } while (0)
 
-#define smart_string_append_unsigned(dest, num, type) \
-	smart_string_append_generic((dest), (num), (type), zend_ulong, _ulong)
+#define smart_string_append_unsigned(dest, num) \
+	smart_string_append_generic((dest), (num), _ulong)
 
-#define smart_string_append_long(dest, num, type) \
-	smart_string_append_generic((dest), (num), (type), zend_ulong, _long)
+#define smart_string_append_long(dest, num) \
+	smart_string_append_generic((dest), (num), _long)
 
 #define smart_string_append(dest, src) \
 	smart_string_appendl((dest), ((smart_string *)(src))->c, \

@@ -256,9 +256,17 @@ void calc_conv_to_double(exp_val_t *src);
 void calc_conv_to_str(exp_val_t *src);
 void calc_conv_to_array(exp_val_t *src);
 
-void calc_echo(exp_val_t *src);
+#define calc_echo(val)  \
+	do { \
+		smart_string buf = {NULL,0,0}; \
+		calc_sprintf(&buf, val); \
+		if(buf.c) { \
+			fwrite(buf.c, 1, buf.len, stdout); \
+			free(buf.c); \
+		} \
+	} while(0)
+
 void calc_sprintf(smart_string *buf, exp_val_t *src);
-void calc_print(char *p);
 void calc_func_def(func_def_f *def);
 void calc_free_args(call_args_t *args);
 void calc_free_syms(func_symbol_t *syms);

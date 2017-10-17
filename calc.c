@@ -367,17 +367,17 @@ void calc_conv_to_array(exp_val_t *src) {
 	}
 }
 
-void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
+void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigned int ii, int dim) {
 	register int i, hasNext = dim+1<arr->dims;
 #ifdef DEBUG
 	for(i = 0; i<dim*4; i++) {
-		printf(" ");
+		smart_string_appendc(buf, ' ');
 	}
 #endif
-	printf("[");
+	smart_string_appendc(buf, '[');
 #ifdef DEBUG
 	if(hasNext) {
-		printf("\n");
+		smart_string_appendc(buf, '\n');
 	}
 #endif
 
@@ -385,77 +385,104 @@ void calc_array_echo(array_t *arr, unsigned int n, unsigned int ii, int dim) {
 	for (i = 0; i < dims; i++) {
 		nii = ii+i*n;
 		if(hasNext) {
-			calc_array_echo(arr, n*dims, nii, dim+1);
+			calc_array_sprintf(buf, arr, n*dims, nii, dim+1);
 			if(i+1 < dims) {
-				printf(",");
+				smart_string_appendc(buf, ',');
 			}
 		#ifdef DEBUG
-			printf("\n");
+			smart_string_appendc(buf, '\n');
 		#endif
 		} else {
 			if(i) {
-				printf(", ");
+				smart_string_appends(buf, ", ");
 			}
-			calc_echo(&arr->array[nii]);
+			calc_sprintf(buf, &arr->array[nii]);
 		}
 	}
 #ifdef DEBUG
 	if(hasNext) {
 		for(i = 0; i<dim*4; i++) {
-			printf(" ");
+			smart_string_appendc(buf, ' ');
 		}
 	}
 #endif
-	printf("]");
+	smart_string_appendc(buf, ']');
 }
 
-#ifdef DEBUG
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf("(%s)(" str ")", types[type],src->val);break
-#else
-#define CALC_ECHO_DEF(src,type,val,str) case type: printf(str,src->val);break
-#endif
-
-void calc_echo(exp_val_t *src) {
-	switch (src->type) {
-		case NULL_T: printf("NULL");break;
-		CALC_ECHO_DEF(src, INT_T, ival, "%d");
-		CALC_ECHO_DEF(src, LONG_T, lval, "%ld");
-		CALC_ECHO_DEF(src, FLOAT_T, fval, "%.16f");
-		CALC_ECHO_DEF(src, DOUBLE_T, dval, "%.19lf");
-		case STR_T:
-		#ifdef DEBUG
-			printf("(str:%d)(\"", src->str->n);
-		#endif
-			fwrite(src->str->c, 1, src->str->n, stdout);
-		#ifdef DEBUG
-			printf("\")");
-		#endif
-			break;
-		case ARRAY_T: {
-			calc_array_echo(src->arr, 1, 0, 0);
-			break;
-		}
-		EMPTY_SWITCH_DEFAULT_CASE()
-	}
-}
-#undef CALC_ECHO_DEF
-
-#define CALC_SPRINTF(src,type,val,str) case type: len = sprintf(s,str,src->val);smart_string_appendl(buf, s, len);break
-// printf(src)
 void calc_sprintf(smart_string *buf, exp_val_t *src) {
-	char s[32] = "";
+	char s[36] = "";
 	int len;
 
 	switch (src->type) {
-		CALC_SPRINTF(src, INT_T, ival, "%d");
-		CALC_SPRINTF(src, LONG_T, lval, "%ld");
-		CALC_SPRINTF(src, FLOAT_T, fval, "%.16f");
-		CALC_SPRINTF(src, DOUBLE_T, dval, "%.19lf");
-		case STR_T: smart_string_appendc(buf, '"');smart_string_appendl(buf, src->str->c, src->str->n);smart_string_appendc(buf, '"');break;
+		case NULL_T:
+			smart_string_appends(buf, "NULL");
+			break;
+		case INT_T:
+		#ifdef DEBUG
+			smart_string_appends(buf, "int(");
+		#endif
+			len = sprintf(s, "%d", src->ival);
+			smart_string_appendl(buf, s, len);
+		#ifdef DEBUG
+			smart_string_appendc(buf, ')');
+		#endif
+			break;
+		case LONG_T:
+		#ifdef DEBUG
+			smart_string_appends(buf, "long(");
+		#endif
+			len = sprintf(s, "%d", src->lval);
+			smart_string_appendl(buf, s, len);
+		#ifdef DEBUG
+			smart_string_appendc(buf, ')');
+		#endif
+			break;
+		case FLOAT_T:
+		#ifdef DEBUG
+			smart_string_appends(buf, "float(");
+		#endif
+			len = sprintf(s, "%g", src->fval);
+			if(strchr(s, '.') == NULL) {
+				strcat(s, ".0");
+				len += 2;
+			}
+			smart_string_appendl(buf, s, len);
+		#ifdef DEBUG
+			smart_string_appendc(buf, ')');
+		#endif
+			break;
+		case DOUBLE_T:
+		#ifdef DEBUG
+			smart_string_appends(buf, "double(");
+		#endif
+			len = sprintf(s, "%g", src->dval);
+			if(strchr(s, '.') == NULL) {
+				strcat(s, ".0");
+				len += 2;
+			}
+			smart_string_appendl(buf, s, len);
+		#ifdef DEBUG
+			smart_string_appendc(buf, ')');
+		#endif
+			break;
+		case STR_T:
+		#ifdef DEBUG
+			smart_string_appends(buf, "str(");
+			smart_string_append_unsigned(buf, src->str->n);
+			smart_string_appends(buf, ")\"");
+		#endif
+			smart_string_appendl(buf, src->str->c, src->str->n);
+		#ifdef DEBUG
+			smart_string_appendc(buf, '"');
+		#endif
+			break;
+		case ARRAY_T: {
+			calc_array_sprintf(buf, src->arr, 1, 0, 0);
+			break;
+		}
 		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 }
-#undef CALC_SPRINTF
 
 int calc_list_funcs(func_def_f *def) {
 	printf("\x1b[34m  %6s function %s\x1b[0m\n", def->run?"system":"user", def->names);
@@ -1580,13 +1607,16 @@ void calc_run_sys_passthru(exp_val_t *expr) {
 
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms) {
 	register call_args_t *args = syms->args;
-	
+	smart_string buf = {NULL,0,0};
 	while (args) {
 		calc_run_expr(&args->val);
-		calc_echo(args->val.result);
+		calc_sprintf(&buf, args->val.result);
 		args = args->next;
 	}
-	
+	if(buf.c) {
+		fwrite(buf.c, 1, buf.len, stdout);
+		free(buf.c);
+	}
 	return NONE_STATUS;
 }
 
