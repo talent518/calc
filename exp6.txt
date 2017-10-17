@@ -6,4 +6,4 @@ while(i<=1000000) {
 	i++;
 }
 etime = microtime();
-echo "sum = ", sum, ", run time: ", etime - btime, endl;
+echo "sum = ", sum, ", i = ", i, ", run time: ", etime - btime, endl;

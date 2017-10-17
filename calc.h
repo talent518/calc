@@ -16,6 +16,8 @@
 #include "smart_string.h"
 
 #define max(a, b) ((a)>(b) ? (a) : (b))
+
+// 内存分配宏 ========================================
 #define NEW(t,n) (t*)malloc(sizeof(t)*(n))
 #define NEW1(t) NEW(t,1)
 #define CNEW(p,t,n) p = NEW(t,n)
@@ -30,6 +32,7 @@
 #define NEW_FREES(dst, type) dst=NEW1(type);zend_hash_next_index_insert(&frees, dst, 0, NULL)
 #define MEMDUP(dst,src,type) NEW_FREES(dst, type);memcpy(dst,src,sizeof(type))
 
+// 数据类型(exp_val_t.type)枚举类型 ==================
 typedef enum _type_enum_t {
 	NULL_T=0, // 空
 	INT_T, // 整型
@@ -60,10 +63,12 @@ typedef enum _type_enum_t {
 	IF_T // 三目运算 (cond?left:right)
 } type_enum_t;
 
+// 系统函数类型枚举类型 ==============================
 typedef enum _call_enum_f {
 	SIN_F, ASIN_F, COS_F, ACOS_F, TAN_F, ATAN_F, CTAN_F, SQRT_F, POW_F, RAD_F, RAND_F, RANDF_F, USER_F, STRLEN_F, MICROTIME_F, SRAND_F, RUNFILE_F, PASSTHRU_F
 } call_enum_f;
 
+// 语句类型枚举类型 ==================================
 typedef enum _symbol_enum_t {
 	ECHO_STMT_T, // echo
 	RET_STMT_T, // ret
@@ -80,14 +85,15 @@ typedef enum _symbol_enum_t {
 	FOR_STMT_T, // for(;;) { breakStmtlist }
 	SWITCH_STMT_T, // switch(expr) { switchStmtList }
 	CASE_STMT_T, // case number: / case str:
-	DEFAULT_STMT_T, // default:
-	NULL_STMT_T
+	DEFAULT_STMT_T // default:
 } symbol_enum_t;
 
+// 执行器(语句执行)返回状态枚举类型 ==================
 typedef enum _status_enum_t {
 	RET_STATUS, BREAK_STATUS, NONE_STATUS
 } status_enum_t;
 
+// =========================================
 typedef struct _call_args_t call_args_t;
 typedef struct _func_args_t func_args_t;
 typedef struct _func_symbol_t func_symbol_t;
@@ -97,12 +103,46 @@ typedef struct _func_def_f func_def_f;
 typedef void (*expr_run_func_t)(exp_val_t *expr);
 typedef status_enum_t (*sym_run_func_t)(exp_val_t *ret, func_symbol_t *syms);
 
+// 变量类型 ================================
 typedef struct {
 	char *c;
 	unsigned int n;
 	unsigned long int h;
 } var_t;
 
+// 字符串类型 ==============================
+typedef struct {
+	char *c;
+	unsigned int n;
+	unsigned int gc; // 垃圾回收计数
+} string_t;
+
+// 数组类型 ================================
+typedef struct {
+	unsigned int gc; // 垃圾回收计数
+	unsigned int arrlen;
+	struct _exp_val_t *array;
+	unsigned int args[16];
+	unsigned char dims; // 维数
+} array_t;
+
+// 指针类型 ================================
+typedef struct _ptr_t ptr_t;
+typedef void (*ptr_free_func_t)(ptr_t *ptr);
+
+struct _ptr_t {
+	unsigned int gc; // 垃圾回收计数
+	union {
+		void *ptr;
+		FILE *fptr;
+		int fp;
+		HashTable *ht;
+	};
+	char *desc;
+	ptr_free_func_t dtor;
+};
+
+// 函数定义类型 ============================
 struct _func_def_f {
 	expr_run_func_t run;
 	var_t *name;
@@ -119,49 +159,23 @@ struct _func_def_f {
 	//HashTable frees;
 };
 
+// 函数调用类型 ============================
 typedef struct {
 	call_enum_f type;
 	unsigned char argc;
 	var_t *name;
 	call_args_t *args;
-	HashTable *ht;
+	HashTable *ht; // 紧runfile中使用
 } func_call_t;
 
-typedef struct {
-	char *c;
-	unsigned int n;
-	unsigned int gc; // 垃圾回收计数
-} string_t;
-
-typedef struct {
-	unsigned int gc; // 垃圾回收计数
-	unsigned int arrlen;
-	struct _exp_val_t *array;
-	unsigned int args[16];
-	unsigned char dims; // 维数
-} array_t;
-
-typedef struct _ptr_t ptr_t;
-typedef void (*ptr_free_func_t)(ptr_t *ptr);
-
-struct _ptr_t {
-	unsigned int gc; // 垃圾回收计数
-	union {
-		void *ptr;
-		FILE *fptr;
-		int fp;
-		HashTable *ht;
-	};
-	char *desc;
-	ptr_free_func_t dtor;
-};
-
+// 表达式定义类型 ==========================
 typedef struct {
 	struct _exp_val_t *cond;
 	struct _exp_val_t *left;
 	struct _exp_val_t *right;
 } exp_def_t;
 
+// 表达式值类型 ============================
 struct _exp_val_t {
 	type_enum_t type;
 	union {
@@ -185,12 +199,14 @@ struct _exp_val_t {
 	expr_run_func_t run;
 };
 
+// 调用参数类型 ============================
 struct _call_args_t {
 	exp_val_t val;
 	struct _call_args_t *next;
 	struct _call_args_t *tail;
 };
 
+// 函数参数类型 ============================
 struct _func_args_t {
 	var_t *name;
 	exp_val_t val;
@@ -198,6 +214,7 @@ struct _func_args_t {
 	struct _func_args_t *tail;
 };
 
+// 语句表类型 ==============================
 struct _func_symbol_t {
 	symbol_enum_t type;
 	union {
@@ -224,25 +241,29 @@ struct _func_symbol_t {
 	sym_run_func_t run;
 };
 
+// 池化指针类型 ============================
 typedef struct _pool_t {
 	void *ptr;
 	dtor_func_t run;
 } pool_t;
 
+// 全局变量 ================================
 extern func_symbol_t *topSyms;
-extern HashTable topFrees;
 extern HashTable results;
 extern char *types[];
 extern HashTable vars;
 extern HashTable funcs;
 extern HashTable pools;
 extern HashTable consts;
+extern HashTable runfiles;
 
+// ==============================================================================
 void append_pool(void *ptr, dtor_func_t run);
 void zend_hash_destroy_ptr(HashTable *ht);
 
 #define free_frees free
 
+// 类型转换函数 =================================================================
 #define CALC_CONV_op(op1, op2, n) calc_conv_to_##n(op1);calc_conv_to_##n(op2)
 
 void calc_conv_to_int(exp_val_t *src);
@@ -252,6 +273,7 @@ void calc_conv_to_double(exp_val_t *src);
 void calc_conv_to_str(exp_val_t *src);
 void calc_conv_to_array(exp_val_t *src);
 
+// 表达式输出函数 ===============================================================
 #define calc_echo(val)  \
 	do { \
 		smart_string buf = {NULL,0,0}; \
@@ -263,11 +285,10 @@ void calc_conv_to_array(exp_val_t *src);
 	} while(0)
 
 void calc_sprintf(smart_string *buf, exp_val_t *src);
-void calc_func_def(func_def_f *def);
-void calc_free_args(call_args_t *args);
-void calc_free_syms(func_symbol_t *syms);
-void calc_free_func(func_def_f *def);
 
+void calc_func_def(func_def_f *def);
+
+// 表达式执行函数 ===============================================================
 void calc_run_variable(exp_val_t *expr); // 读取变量
 void calc_run_add(exp_val_t *expr); // 加法运算
 void calc_run_sub(exp_val_t *expr); // 减法运算
@@ -286,6 +307,8 @@ void calc_run_eq(exp_val_t *expr); // ==运算
 void calc_run_ne(exp_val_t *expr); // !=运算
 void calc_run_array(exp_val_t *expr); // 读取数组元素值
 void calc_run_func(exp_val_t *expr); // 执行用户函数
+
+// 系统函数执行函数 =============================================================
 void calc_run_sys_runfile(exp_val_t *expr);
 void calc_run_sys_passthru(exp_val_t *expr);
 void calc_run_sys_sqrt(exp_val_t *expr);
@@ -303,6 +326,8 @@ void calc_run_sys_randf(exp_val_t *expr);
 void calc_run_sys_strlen(exp_val_t *expr);
 void calc_run_sys_microtime(exp_val_t *expr);
 void calc_run_sys_srand(exp_val_t *expr);
+
+// 语句执行函数 =================================================================
 status_enum_t calc_run_syms(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_echo(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_ret(exp_val_t *ret, func_symbol_t *syms);
@@ -320,9 +345,11 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_for(exp_val_t *ret, func_symbol_t *syms);
 status_enum_t calc_run_sym_switch(exp_val_t *ret, func_symbol_t *syms);
 
+// 表达式内存回收函数 ===========================================================
 void calc_free_expr(exp_val_t *expr);
 void calc_free_vars(exp_val_t *expr);
 
+// 数据处理函数 =================================================================
 #define calc_run_expr(expr) \
 	if(EXPECTED((expr)->run!=NULL)) { \
 		(expr)->run((expr)); \
@@ -360,13 +387,20 @@ void calc_free_vars(exp_val_t *expr);
 void str2val(exp_val_t *val, char *str);
 void unescape(char *p);
 
-int calc_list_funcs(func_def_f *def);
-int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
-
-#define free_str(s) if(!(s->gc--)) { \
+// 内存回收函数 =================================================================
+#define free_str(s) \
+	if(!(s->gc--)) { \
 		free(s->c); \
 		free(s); \
 	}
+
+void calc_free_args(call_args_t *args);
+void calc_free_syms(func_symbol_t *syms);
+void calc_free_func(func_def_f *def);
+
+// 列表函数 =====================================================================
+int calc_list_funcs(func_def_f *def);
+int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
 
 typedef struct _linenostack {
 	unsigned int lineno;

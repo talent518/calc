@@ -57,25 +57,27 @@ extern int yylineno;
 	calc_func_def(def)
 
 #define RUN_SYMS(ret, isrun) \
-	if(EXPECTED(isSyntaxData)) { \
-		if(topSyms!=NULL) { \
-			if(yyin==stdin){ \
-				printf("\n\x1b[35m=================================\n\x1b[0m"); \
+	if(isRunSyms) { \
+		if(EXPECTED(isSyntaxData)) { \
+			if(topSyms!=NULL) { \
+				if(yyin==stdin){ \
+					printf("\n\x1b[35m=================================\n\x1b[0m"); \
+				} \
+				memset(ret, 0, sizeof(exp_val_t)); \
+				if(calc_run_syms(ret, topSyms)==RET_STATUS && yyin==stdin) { \
+					printf("\x1b[36m\n---------------------------------\nret = "); \
+					calc_echo(ret); \
+					if(!isrun)printf("\n\x1b[0m"); \
+				} \
+				calc_free_expr(ret); \
+				topSyms=NULL; \
 			} \
-			memset(ret, 0, sizeof(exp_val_t)); \
-			if(calc_run_syms(ret, topSyms)==RET_STATUS && yyin==stdin) { \
-				printf("\x1b[36m\n---------------------------------\nret = "); \
-				calc_echo(ret); \
-				if(!isrun)printf("\n\x1b[0m"); \
+			if(isrun && yyin==stdin){ \
+				printf("\x1b[35m\n=================================\n\x1b[0m> "); \
 			} \
-			calc_free_expr(ret); \
-			topSyms=NULL; \
 		} \
-		if(isrun && yyin==stdin){ \
-			printf("\x1b[35m\n=================================\n\x1b[0m> "); \
-		} \
-	} \
-	yylineno=1 \
+		yylineno=1; \
+	}
 
 exp_val_t run_expr_lr={NULL_T};
 exp_def_t run_expr_lr_def;
@@ -91,6 +93,7 @@ int linenofunc = 0;
 char *linenofuncname = NULL;
 
 int isExitStmt = 0;
+int isRunSyms = 1;
 
 int zend_hash_apply_append_frees(void*, HashTable*);
 %}
@@ -136,7 +139,7 @@ calclist:
  | calclist FUNC VARIABLE ';' { if(EXPECTED(isSyntaxData)) { func_def_f *def = NULL;zend_hash_quick_find(&funcs, $3.var->c, $3.var->n, $3.var->h, (void**)&def);if(def){printf("\x1b[34m=========================\n%s:\n%s\n=========================\n\x1b[0m", def->names, def->desc?def->desc:" * return mixed.");}else{printf("\x1b[34m=========================\nfunction %s() not exists.\n=========================\n\x1b[0m", $3.var->c);}if(yyin==stdin) printf("\n> "); } }
  | calclist RUN ';' { RUN_SYMS(&$1,1); }
  | calclist EXIT { isExitStmt=1;RUN_SYMS(&$1,0);isExitStmt=0;if(yywrap()) YYACCEPT; }
- | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } /*zend_hash_apply_with_argument(&frees, (apply_func_arg_t)zend_hash_apply_append_frees, &topFrees);*/ } }
+ | calclist stmtList { if(EXPECTED(isSyntaxData)) { if(topSyms) {APPEND(topSyms,$2.syms);} else { topSyms = $2.syms; } } }
  | calclist include {
 	FILE *fp = NULL;
 	char filepath[1024] = "";
