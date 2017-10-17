@@ -369,19 +369,23 @@ void calc_conv_to_array(exp_val_t *src) {
 
 void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigned int ii, int dim) {
 	register int i, hasNext = dim+1<arr->dims;
-#ifdef DEBUG
+	register unsigned int dims = arr->args[arr->dims-1-dim], nii;
+
+#ifdef HAVE_EXPR_TYPE
 	for(i = 0; i<dim*4; i++) {
 		smart_string_appendc(buf, ' ');
 	}
+	smart_string_appends(buf, "array(");
+	smart_string_append_unsigned(buf, dims);
+	smart_string_appends(buf, ") ");
 #endif
 	smart_string_appendc(buf, '[');
-#ifdef DEBUG
+#ifdef HAVE_EXPR_TYPE
 	if(hasNext) {
 		smart_string_appendc(buf, '\n');
 	}
 #endif
 
-	register unsigned int dims = arr->args[arr->dims-1-dim], nii;
 	for (i = 0; i < dims; i++) {
 		nii = ii+i*n;
 		if(hasNext) {
@@ -389,7 +393,7 @@ void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigne
 			if(i+1 < dims) {
 				smart_string_appendc(buf, ',');
 			}
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, '\n');
 		#endif
 		} else {
@@ -399,7 +403,7 @@ void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigne
 			calc_sprintf(buf, &arr->array[nii]);
 		}
 	}
-#ifdef DEBUG
+#ifdef HAVE_EXPR_TYPE
 	if(hasNext) {
 		for(i = 0; i<dim*4; i++) {
 			smart_string_appendc(buf, ' ');
@@ -418,27 +422,27 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 			smart_string_appends(buf, "NULL");
 			break;
 		case INT_T:
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appends(buf, "int(");
 		#endif
 			len = sprintf(s, "%d", src->ival);
 			smart_string_appendl(buf, s, len);
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, ')');
 		#endif
 			break;
 		case LONG_T:
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appends(buf, "long(");
 		#endif
 			len = sprintf(s, "%d", src->lval);
 			smart_string_appendl(buf, s, len);
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, ')');
 		#endif
 			break;
 		case FLOAT_T:
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appends(buf, "float(");
 		#endif
 			len = sprintf(s, "%g", src->fval);
@@ -447,12 +451,12 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 				len += 2;
 			}
 			smart_string_appendl(buf, s, len);
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, ')');
 		#endif
 			break;
 		case DOUBLE_T:
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appends(buf, "double(");
 		#endif
 			len = sprintf(s, "%g", src->dval);
@@ -461,18 +465,18 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 				len += 2;
 			}
 			smart_string_appendl(buf, s, len);
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, ')');
 		#endif
 			break;
 		case STR_T:
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appends(buf, "str(");
 			smart_string_append_unsigned(buf, src->str->n);
-			smart_string_appends(buf, ")\"");
+			smart_string_appends(buf, ") \"");
 		#endif
 			smart_string_appendl(buf, src->str->c, src->str->n);
-		#ifdef DEBUG
+		#ifdef HAVE_EXPR_TYPE
 			smart_string_appendc(buf, '"');
 		#endif
 			break;
@@ -494,14 +498,23 @@ int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_has
 	int result = va_arg(args, int);
 	char *key = strndup(hash_key->arKey, hash_key->nKeyLength);
 
-	printf("\x1b[34m");
-	if (result == ZEND_HASH_APPLY_KEEP) {
-		printf("  (%6s) %s = ", types[val->type], key);
-	} else {
-		printf("  remove variable %s, type is %s, value is ", key, types[val->type]);
-	}
+	printf("\x1b[34m  (%6s) %s = ", types[val->type], key);
 	free(key);
+
+	if(val->type == ARRAY_T) {
+		printf("array(%d, [%d", val->arr->arrlen, val->arr->args[0]);
+		int i;
+		for(i=1; i<val->arr->dims; i++) {
+			printf(", %d", val->arr->args[i]);
+		}
+		printf("]) ");
+	} else if(val->type == STR_T) {
+		printf("str(%d) \"", val->str->n);
+	}
 	calc_echo(val);
+	if(val->type == STR_T) {
+		printf("\"");
+	}
 	printf("\n");
 	printf("\x1b[0m");
 	return result;
@@ -1672,6 +1685,8 @@ status_enum_t calc_run_sym_do_while(exp_val_t *ret, func_symbol_t *syms) {
 status_enum_t calc_run_sym_break(exp_val_t *ret, func_symbol_t *syms) {
 	return BREAK_STATUS;
 }
+
+#define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 status_enum_t calc_run_sym_list(exp_val_t *ret, func_symbol_t *syms) {
 	LIST_STMT("\x1b[34m--- list in func(funcname: %s, line: %d) ---\x1b[0m\n", linenostack[linenostacktop].funcname, syms->lineno, ZEND_HASH_APPLY_KEEP);

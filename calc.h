@@ -366,8 +366,6 @@ void unescape(char *p);
 
 int calc_list_funcs(func_def_f *def);
 int calc_clear_or_list_vars(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key);
-int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key);
-#define LIST_STMT(info, funcname, lineno, t) printf(info, funcname, lineno);zend_hash_apply_with_arguments(&vars, (apply_func_args_t)calc_clear_or_list_vars, 1, t)
 
 #define free_str(s) if(!(s->gc--)) { \
 		free(s->c); \
