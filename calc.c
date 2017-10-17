@@ -1979,7 +1979,15 @@ int calc_runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t bef
 	
 	if(strcmp(filename, "-")) {
 		if(realpath(filename, filepath)) {
-			filename = strdup(filepath);
+			char *cwd = getcwd(NULL, 0);
+			unsigned int cwdlen = strlen(cwd);
+			if(cwdlen>0 && !strncmp(filepath, cwd, cwdlen) && filepath[cwdlen]=='/') {
+				filepath[cwdlen-1] = '.';
+				filename = strdup(filepath+cwdlen-1);
+			} else {
+				filename = strdup(filepath);
+			}
+			free(cwd);
 			
 			zend_hash_next_index_insert(&frees, filename, 0, NULL);
 			
@@ -2047,11 +2055,17 @@ void yyerror(const char *s, ...) {
 	char buf[256];
 	char linenoformat[8];
 	FILE *fp;
+	char *cwd = getcwd(NULL, 0);
 	for(i=linenostacktop; i>0; i--) {
-		if(linenostack[i].funcname) {
-			fprintf(stderr, "%s(%d): %s\n", linenostack[i].filename, linenostack[i].lineno, linenostack[i].funcname);
+		if(linenostack[i].filename[0] == '.') {
+			printf("%s/%s", cwd, linenostack[i].filename+1);
 		} else {
-			fprintf(stderr, "%s(%d): \n", linenostack[i].filename, linenostack[i].lineno);
+			printf("%s", linenostack[i].filename);
+		}
+		if(linenostack[i].funcname) {
+			fprintf(stderr, "(%d): %s\n", linenostack[i].lineno, linenostack[i].funcname);
+		} else {
+			fprintf(stderr, "(%d): \n", linenostack[i].lineno);
 		}
 
 		if(!strcmp(linenostack[i].filename, "-")) {
@@ -2115,6 +2129,7 @@ void yyerror(const char *s, ...) {
 
 		fclose(fp);
 	}
+	free(cwd);
 	fprintf(stderr, "-----------------------------------\n");
 
 	va_list ap;

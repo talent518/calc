@@ -40,3 +40,5 @@ clear;
 a = 0;
 list;
 echo "rad(30) = ", rad(30), endl;
+
+echo __FILE__, "(", __LINE__, "): INCLUDE_DEEP = ", INCLUDE_DEEP, endl;

@@ -32,3 +32,4 @@ list;
 
 include "exp.txt";
 
+echo __FILE__, "(", __LINE__, "): INCLUDE_DEEP = ", INCLUDE_DEEP, endl;

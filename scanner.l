@@ -95,6 +95,7 @@ void comment_str(char *s) {
 "float"                                        { /* 忽略float关键字 */ }
 "double"                                       { /* 忽略double关键字 */ }
 "string"                                       { /* 忽略string关键字 */ }
+"INCLUDE_DEEP"                                   { if(EXPECTED(isSyntaxData)) { yylval.type=DOUBLE_T;yylval.dval=includeDeep; } return NUMBER; }
 "NULL"                                         { if(EXPECTED(isSyntaxData)) {memset(&yylval, 0, sizeof(exp_val_t));} return NUMBER; }
 "__FUNC__"                                     { if(EXPECTED(isSyntaxData)) {if(!linenofuncname){memset(&yylval, 0, sizeof(exp_val_t));return NUMBER;}yylval.type=STR_T;NEW_FREES(yylval.str,string_t);yylval.str->c=strdup(linenofuncname);yylval.str->n=strlen(linenofuncname);yylval.str->gc=1;zend_hash_next_index_insert(&frees, yylval.str->c, 0, NULL);}  return STR; }
 "__FLINE__"                                    { if(EXPECTED(isSyntaxData)) {yylval.type=INT_T;yylval.ival=linenofunc;} return NUMBER; }

@@ -155,7 +155,18 @@ calclist:
 			_wrap_stack->fp = yyin;
 			_wrap_stack->filename = curFileName;
 			_wrap_stack->lineno = yylineno;
-			curFileName = strdup(filepath);
+
+			char *cwd = getcwd(NULL, 0);
+			unsigned int cwdlen = strlen(cwd);
+
+			if(cwdlen>0 && !strncmp(filepath, cwd, cwdlen) && filepath[cwdlen]=='/') {
+				filepath[cwdlen-1] = '.';
+				curFileName = strdup(filepath+cwdlen-1);
+			} else {
+				curFileName = strdup(filepath);
+			}
+			free(cwd);
+
 			zend_hash_next_index_insert(&frees, curFileName, 0, NULL);
 			yylineno = 1;
 			tailWrapStack = _wrap_stack;
