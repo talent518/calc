@@ -1168,12 +1168,9 @@ extern int isRunSyms;
 typedef struct {
 	string_t *str;
 	HashTable *ht;
-	int is;
 } runfile_before_t;
 void calc_run_sys_runfile_before(runfile_before_t *rb) {
 	zend_hash_copy(&files, rb->ht, NULL, 1, 0);
-
-	if(rb->is) zend_hash_add(&runfiles, rb->str->c, rb->str->n, topSyms, 0, NULL);
 }
 
 void calc_run_sys_runfile(exp_val_t *expr) {
@@ -1189,57 +1186,40 @@ void calc_run_sys_runfile(exp_val_t *expr) {
 		tmpArgs = tmpArgs->next;
 	}
 
-	if (expr->call->argc > argc) {
-		yyerror("The system function runfile(string str [, int isreparse = 1]) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
+	if (expr->call->argc != argc) {
+		yyerror("The system function runfile(string str) the number of parameters should be %d, the actual %d.\n", expr->call->argc, argc);
 		return;
 	}
 	
 	calc_run_expr(&args->val);
 	
 	if(args->val.result->type != STR_T) {
-		yyerror("The system function runfile(string str [, int isreparse = 1]) parameter not string type.\n");
+		yyerror("The system function runfile(string str) parameter not string type.\n");
 	}
 
 	runfile_before_t rb = {
 		args->val.result->str,
-		expr->call->ht,
-		1
+		expr->call->ht
 	};
 
-	if(args->next) {
-		calc_run_expr(&args->next->val);
-		calc_conv_to_double(args->next->val.result);
-		if(!args->next->val.result->dval) {
-			rb.is = 0;
-		}
-	}
-
-	int ret;
-	func_symbol_t *_topSyms = NULL;
-
-	if(rb.is && zend_hash_find(&runfiles, rb.str->c, rb.str->n, (void**)&_topSyms) == SUCCESS) {
-		ret = 0;
-		calc_run_syms(expr->result, _topSyms);
-	} else {
-		int _isolate = isolate;
-		int _isRunSyms = isRunSyms;
-		isolate = 0;
-		isRunSyms = 0;
-		_topSyms = topSyms;
-		topSyms = NULL;
-		ret = calc_runfile(expr->result, rb.str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, &rb);
-		topSyms = _topSyms;
-		isolate = _isolate;
-		isRunSyms = _isRunSyms;
-		
-		zend_hash_apply_with_arguments(rb.ht, (apply_func_args_t)apply_delete, 1, &files);
-		
-		if(ret && expr->result->type == NULL_T) {
-			expr->result->type = STR_T;
-			CNEW01(expr->result->str, string_t);
-			expr->result->str->c = strndup(errmsg, errmsglen);
-			expr->result->str->n = errmsglen;
-		}
+	func_symbol_t *_topSyms = topSyms;
+	int _isolate = isolate;
+	int _isRunSyms = isRunSyms;
+	isolate = 0;
+	isRunSyms = 0;
+	topSyms = NULL;
+	int ret = calc_runfile(expr->result, rb.str->c, (top_syms_run_before_func_t)calc_run_sys_runfile_before, &rb);
+	topSyms = _topSyms;
+	isolate = _isolate;
+	isRunSyms = _isRunSyms;
+	
+	zend_hash_apply_with_arguments(rb.ht, (apply_func_args_t)apply_delete, 1, &files);
+	
+	if(ret && expr->result->type == NULL_T) {
+		expr->result->type = STR_T;
+		CNEW01(expr->result->str, string_t);
+		expr->result->str->c = strndup(errmsg, errmsglen);
+		expr->result->str->n = errmsglen;
 	}
 }
 
@@ -2030,42 +2010,57 @@ int calc_runfile(exp_val_t *expr, char *filename, top_syms_run_before_func_t bef
 		}
 	}
 
-	if(zend_hash_add(&files, filename, strlen(filename), NULL, 0, NULL)!=SUCCESS) {
+	var_t var = {filename, strlen(filename)};
+	var.h = zend_hash_func(var.c, var.n);
+
+	if(zend_hash_quick_add(&files, var.c, var.n, var.h, NULL, 0, NULL)!=SUCCESS) {
 		if(fp != stdin) {
 			fclose(fp);
 		}
 		yyerror("File \"%s\" already included!\n", filename);
 		return 1;
 	}
-	
-	dprintf("==========================\n");
-	dprintf("BEGIN INPUT: %s\n", filename);
-	dprintf("--------------------------\n");
-	curFileName = filename;
-	yylineno = 1;
+	int ret = 0;
 
-	yyrestart(fp);
-	
-	frees.pDestructor = NULL;
-
-	int ret = yyparse();
-	
-	if(!ret && isSyntaxData) {
+	topSyms = NULL;
+	if(isSyntaxData && zend_hash_quick_find(&runfiles, var.c, var.n, var.h, (void**)&topSyms) == SUCCESS) {
 		memset(expr, 0, sizeof(exp_val_t));
 		if(before) {
 			before(ptr);
 		}
 		calc_run_syms(expr, topSyms);
 		topSyms = NULL;
-		if(isolate) {
-			zend_hash_clean(&vars);
-			zend_hash_apply(&funcs, (apply_func_t)apply_funcs);
+	} else {
+		dprintf("==========================\n");
+		dprintf("BEGIN INPUT: %s\n", filename);
+		dprintf("--------------------------\n");
+		curFileName = filename;
+		yylineno = 1;
+
+		yyrestart(fp);
+		
+		frees.pDestructor = NULL;
+
+		int ret = yyparse();
+		
+		if(!ret && isSyntaxData) {
+			memset(expr, 0, sizeof(exp_val_t));
+			if(before) {
+				before(ptr);
+			}
+			zend_hash_quick_add(&runfiles, var.c, var.n, var.h, topSyms, 0, NULL);
+			calc_run_syms(expr, topSyms);
+			topSyms = NULL;
+			if(isolate) {
+				zend_hash_clean(&vars);
+				zend_hash_apply(&funcs, (apply_func_t)apply_funcs);
+			}
 		}
+		while(ret && !yywrap()) {}
+		frees.pDestructor = (dtor_func_t)free_frees;
 	}
-	while(ret && !yywrap()) {}
-	frees.pDestructor = (dtor_func_t)free_frees;
-	
-	zend_hash_del(&files, filename, strlen(filename));
+
+	zend_hash_quick_del(&files, var.c, var.n, var.h);
 	if(fp != stdin) {
 		fclose(fp);
 	}
