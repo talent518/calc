@@ -1892,7 +1892,6 @@ void calc_free_expr(exp_val_t *expr) {
 				}
 				free(expr->arr->array);
 				free(expr->arr);
-				expr->type = NULL_T;
 			}
 			break;
 		}
@@ -1900,23 +1899,18 @@ void calc_free_expr(exp_val_t *expr) {
 			dprintf("--- FreeVars: PTR_T(%u) ---\n", expr->arr->gc);
 			if(!(expr->ptr->gc--)) {
 				expr->ptr->dtor(expr->ptr);
-				expr->type = NULL_T;
 			}
 			break;
 		}
 		case STR_T: {
 			dprintf("--- FreeVars: STR_T(%u) ---\n", expr->str->gc);
-			if(expr->str->gc<=0) {
-				expr->type = NULL_T;
-			}
 			free_str(expr->str);
 			break;
 		}
-		default: {
-			expr->type = NULL_T;
-			break;
-		}
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
+
+	expr->type = NULL_T;
 }
 void calc_free_vars(exp_val_t *expr) {
 	calc_free_expr(expr);
