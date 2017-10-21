@@ -1,0 +1,14 @@
+bin_PROGRAMS = calc
+
+calc_SOURCES = main.c
+calc_LDADD = libcalc.la
+
+libcalc_la_SOURCES = parser.c scanner.c zend_hash.c calc.c ext.c
+libcalc_la_LIBADD = @extlibs@
+
+EXTRA_LIBRARIES =
+noinst_LIBRARIES = @extlibs@
+lib_LTLIBRARIES = libcalc.la
+
+calcincludedir = $(includedir)/calc
+calcinclude_HEADERS = calc.h config.h ext.h parser.h scanner.h smart_string.h zend_hash.h @extheaders@
