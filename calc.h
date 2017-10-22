@@ -41,6 +41,7 @@ typedef enum _type_enum_t {
 	DOUBLE_T, // 双精度型
 	STR_T, // 字符串
 	ARRAY_T, // 数组类型
+	MAP_T, // 动态索引/动态数组/哈希表类型
 	PTR_T, // 指针类型
 	VAR_T, // 变量
 	FUNC_T, // 函数
@@ -136,7 +137,6 @@ struct _ptr_t {
 		void *ptr;
 		FILE *fptr;
 		int fp;
-		HashTable *ht;
 	};
 	char *desc;
 	ptr_free_func_t dtor;
@@ -175,6 +175,12 @@ typedef struct {
 	struct _exp_val_t *right;
 } exp_def_t;
 
+// 表达式定义类型 ==========================
+typedef struct {
+	unsigned int gc; // 垃圾回收计数
+	HashTable ht;
+} map_t;
+
 // 表达式值类型 ============================
 struct _exp_val_t {
 	type_enum_t type;
@@ -186,6 +192,7 @@ struct _exp_val_t {
 		var_t *var;
 		string_t *str;
 		array_t *arr;
+		map_t *map;
 		struct _exp_val_t *ref;
 		func_call_t *call;
 		call_args_t *callArgs;
@@ -272,6 +279,7 @@ void calc_conv_to_float(exp_val_t *src);
 void calc_conv_to_double(exp_val_t *src);
 void calc_conv_to_str(exp_val_t *src);
 void calc_conv_to_array(exp_val_t *src);
+void calc_conv_to_hashtable(exp_val_t *src);
 
 // 表达式输出函数 ===============================================================
 #define calc_echo(val)  \
@@ -284,7 +292,8 @@ void calc_conv_to_array(exp_val_t *src);
 		} \
 	} while(0)
 
-void calc_sprintf(smart_string *buf, exp_val_t *src);
+void calc_sprintf_ex(smart_string *buf, exp_val_t *src, unsigned int deep);
+#define calc_sprintf(buf, src) calc_sprintf_ex(buf, src, 0)
 
 void calc_func_def(func_def_f *def);
 
@@ -361,6 +370,9 @@ void calc_free_vars(exp_val_t *expr);
 	} \
 	if((dst)->type == ARRAY_T) { \
 		(dst)->arr->gc++; \
+	} \
+	if((dst)->type == MAP_T) { \
+		(dst)->map->gc++; \
 	} \
 	if((dst)->type == PTR_T) { \
 		(dst)->ptr->gc++; \

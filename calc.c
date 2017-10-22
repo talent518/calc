@@ -23,7 +23,7 @@ int errmsglen = 0;
 linenostack_t linenostack[1024]={{0,"TOP",NULL}};
 int linenostacktop = 0;
 
-char *types[] = { "NULL", "int", "long", "float", "double", "str", "array", "ptr" };
+char *types[] = { "NULL", "int", "long", "float", "double", "str", "array", "map", "ptr" };
 
 void str2val(exp_val_t *val, char *str) {
 	int n=strlen(str);
@@ -316,7 +316,6 @@ void calc_conv_to_double(exp_val_t *src) {
 }
 
 #define CALC_CONV_num2str(fmt, size, key) CNEW0(str->c, char, size); str->n = snprintf(str->c, size, fmt, src->key)
-
 void calc_conv_to_str(exp_val_t *src) {
 	DNEW01(str, string_t);
 	
@@ -366,13 +365,27 @@ void calc_conv_to_array(exp_val_t *src) {
 		src->arr = arr;
 	}
 }
+void calc_conv_to_hashtable(exp_val_t *src) {
+	if(src->type != MAP_T) {
+		DNEW1(map, map_t);
+		map->gc = 0;
+		zend_hash_init(&map->ht, 2, (dtor_func_t)calc_free_vars);
+		
+		DNEW1(ptr, exp_val_t);
+		memcpy(ptr, src, sizeof(exp_val_t));
+		zend_hash_next_index_insert(&map->ht, ptr, 0, NULL);
+		
+		src->type = MAP_T;
+		src->map = map;
+	}
+}
 
-void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigned int ii, int dim) {
+void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigned int ii, int dim, unsigned int deep) {
 	register int i, hasNext = dim+1<arr->dims;
 	register unsigned int dims = arr->args[arr->dims-1-dim], nii;
 
 #ifdef HAVE_EXPR_TYPE
-	for(i = 0; i<dim*4; i++) {
+	for(i = 0; i<deep*4; i++) {
 		smart_string_appendc(buf, ' ');
 	}
 	smart_string_appends(buf, "array(");
@@ -389,7 +402,7 @@ void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigne
 	for (i = 0; i < dims; i++) {
 		nii = ii+i*n;
 		if(hasNext) {
-			calc_array_sprintf(buf, arr, n*dims, nii, dim+1);
+			calc_array_sprintf(buf, arr, n*dims, nii, dim+1, deep+1);
 			if(i+1 < dims) {
 				smart_string_appendc(buf, ',');
 			}
@@ -400,12 +413,12 @@ void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigne
 			if(i) {
 				smart_string_appends(buf, ", ");
 			}
-			calc_sprintf(buf, &arr->array[nii]);
+			calc_sprintf_ex(buf, &arr->array[nii], deep+1);
 		}
 	}
 #ifdef HAVE_EXPR_TYPE
 	if(hasNext) {
-		for(i = 0; i<dim*4; i++) {
+		for(i = 0; i<deep*4; i++) {
 			smart_string_appendc(buf, ' ');
 		}
 	}
@@ -413,7 +426,55 @@ void calc_array_sprintf(smart_string *buf, array_t *arr, unsigned int n, unsigne
 	smart_string_appendc(buf, ']');
 }
 
-void calc_sprintf(smart_string *buf, exp_val_t *src) {
+int calc_map_apply_sprintf(exp_val_t *val, int num_args, va_list args, zend_hash_key *hash_key) {
+	smart_string *buf = va_arg(args, smart_string*);
+	unsigned int deep = va_arg(args, unsigned int);
+	register int i;
+
+#ifdef HAVE_EXPR_TYPE
+	for(i = 0; i<deep*4; i++) {
+		smart_string_appendc(buf, ' ');
+	}
+#endif
+	if(hash_key->nKeyLength > 0) {
+		smart_string_appendc(buf, '"');
+		smart_string_appendl(buf, hash_key->arKey, hash_key->nKeyLength);
+		smart_string_appendc(buf, '"');
+	} else {
+		smart_string_append_unsigned(buf, hash_key->h);
+	}
+	
+	smart_string_appendc(buf, ':');
+	calc_sprintf_ex(buf, val, deep+1);
+	smart_string_appendc(buf, ',');
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+void calc_map_sprintf(smart_string *buf, HashTable *ht, unsigned int deep) {
+	register int i, hasNext = zend_hash_num_elements(ht);
+#ifdef HAVE_EXPR_TYPE
+	if(hasNext) {
+		for(i = 0; i<deep*4; i++) {
+			smart_string_appendc(buf, ' ');
+		}
+	}
+#endif
+	smart_string_appendc(buf, '{');
+	if(hasNext) {
+		zend_hash_apply_with_arguments(ht, (apply_func_args_t)calc_map_apply_sprintf, 2, buf, deep+1);
+		buf->len--;
+	}
+#ifdef HAVE_EXPR_TYPE
+	if(hasNext) {
+		for(i = 0; i<deep*4; i++) {
+			smart_string_appendc(buf, ' ');
+		}
+	}
+#endif
+	smart_string_appendc(buf, '}');
+}
+
+void calc_sprintf_ex(smart_string *buf, exp_val_t *src, unsigned int deep) {
 	char s[36] = "";
 	int len;
 
@@ -481,7 +542,11 @@ void calc_sprintf(smart_string *buf, exp_val_t *src) {
 		#endif
 			break;
 		case ARRAY_T: {
-			calc_array_sprintf(buf, src->arr, 1, 0, 0);
+			calc_array_sprintf(buf, src->arr, 1, 0, 0, deep+1);
+			break;
+		}
+		case MAP_T: {
+			calc_map_sprintf(buf, &src->map->ht, deep+1);
 			break;
 		}
 		EMPTY_SWITCH_DEFAULT_CASE()
@@ -961,18 +1026,18 @@ void calc_run_ne(exp_val_t *expr) {
 }
 
 void calc_run_array(exp_val_t *expr) {
-	exp_val_t *ptr = NULL, *tmp;
+	exp_val_t *ptr = NULL, *tmpPtr;
 	register call_args_t *args = expr->call->args;
 	register int isref = 1;
 	
 	calc_free_expr(expr->result);
 
 	zend_hash_quick_find(&vars, expr->call->name->c, expr->call->name->n, expr->call->name->h, (void**)&ptr);
+	
+array_access:
 	if(UNEXPECTED(!ptr)) {
 		yyerror("(warning) variable %s not exists, cannot read array or string value.\n", expr->call->name->c);
 	} else if (UNEXPECTED(ptr->type == STR_T)) {
-		str_array_access:
-		
 		if(UNEXPECTED(args->next!=NULL)) {
 			yyerror("An string of %s dimension bounds.\n", expr->call->name->c);
 			return;
@@ -989,9 +1054,7 @@ void calc_run_array(exp_val_t *expr) {
 		CNEW01(expr->result->str, string_t);
 		expr->result->str->c = strndup(ptr->str->c+args->val.result->ival, 1);
 		expr->result->str->n = 1;
-	} else if (UNEXPECTED(ptr->type != ARRAY_T)) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", expr->call->name->c, types[ptr->type]);
-	} else {
+	} else if (UNEXPECTED(ptr->type == ARRAY_T)) {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&args->val);
@@ -1009,8 +1072,8 @@ void calc_run_array(exp_val_t *expr) {
 			if(UNEXPECTED(++i  == ptr->arr->dims)) {
 				ptr = &ptr->arr->array[ii];
 				if (UNEXPECTED(args->next!=NULL)) {
-					if(ptr->type == STR_T) goto str_array_access;
-					yyerror("An array of %s dimension bounds.\n", expr->call->name->c);
+					args = args->next;
+					goto array_access;
 				} else {
 					memcpy_ref_expr(expr->result, ptr);
 				}
@@ -1021,6 +1084,25 @@ void calc_run_array(exp_val_t *expr) {
 		}
 
 		yyerror("Array %s dimension deficiency.\n", expr->call->name->c);
+	} else if (UNEXPECTED(ptr->type == MAP_T)) {
+		tmpPtr = NULL;
+		
+		calc_run_expr(&args->val);
+		calc_conv_to_str(args->val.result);
+		
+		zend_symtable_find(&ptr->map->ht, args->val.result->str->c, args->val.result->str->n, (void**)&tmpPtr);
+		
+		if(tmpPtr) {
+			if(args->next) {
+				ptr = tmpPtr;
+				args = args->next;
+				goto array_access;
+			} else {
+				memcpy_ref_expr(expr->result, tmpPtr);
+			}
+		}
+	} else {
+		yyerror("(warning) variable %s not is a array or map(hash table), type is %s.\n", expr->call->name->c, types[ptr->type]);
 	}
 }
 
@@ -1824,14 +1906,22 @@ status_enum_t calc_run_sym_variable_assign(exp_val_t *ret, func_symbol_t *syms) 
 }
 
 status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
-	exp_val_t *ptr = NULL;
+	exp_val_t *ptr = NULL, *tmpPtr;
+	register call_args_t *args = syms->var->call->args;
 
 	zend_hash_quick_find(&vars, syms->var->call->name->c, syms->var->call->name->n, syms->var->call->name->h, (void**)&ptr);
-	if (UNEXPECTED(!ptr || ptr->type != ARRAY_T)) {
-		yyerror("(warning) variable %s not is a array, type is %s.\n", syms->var->call->name->c, types[ptr->type]);
-	} else {
-		register call_args_t *args = syms->var->call->args;
 
+	if (UNEXPECTED(!ptr)) {
+		CNEW1(ptr, exp_val_t);
+		CNEW1(ptr->map, map_t);
+		ptr->type = MAP_T;
+		ptr->map->gc = 0;
+		zend_hash_init(&ptr->map->ht, 2, (dtor_func_t)calc_free_vars);
+		zend_hash_quick_update(&vars, syms->var->call->name->c, syms->var->call->name->n, syms->var->call->name->h, ptr, 0, NULL);
+		goto array_assign_map;
+	}
+array_assign:
+	if(ptr->type == ARRAY_T) {
 		unsigned int i = 0, n = 1, ii = 0;
 		while (args) {
 			calc_run_expr(&args->val);
@@ -1861,6 +1951,50 @@ status_enum_t calc_run_sym_array_assign(exp_val_t *ret, func_symbol_t *syms) {
 		}
 
 		yyerror("Array %s dimension deficiency.\n", syms->var->call->name->c);
+	} else if(ptr->type == MAP_T) {
+	array_assign_map:
+		tmpPtr = NULL;
+		
+		calc_run_expr(&args->val);
+		calc_conv_to_str(args->val.result);
+		
+	#define ARRAY_ASSIGN_MAP \
+		zend_hash_index_find(&ptr->map->ht, idx, (void**)&tmpPtr); \
+		if(!tmpPtr) { \
+			CNEW01(tmpPtr, exp_val_t); \
+			zend_hash_index_update(&ptr->map->ht, idx, tmpPtr, 0, NULL); \
+		} \
+		ptr = tmpPtr; \
+		if(args->next) { \
+			args = args->next; \
+			goto array_assign; \
+		} else { \
+			VAR_ACC(); \
+			return NONE_STATUS; \
+		}
+		
+		do {
+			ulong idx;
+			ZEND_HANDLE_NUMERIC_EX(args->val.result->str->c, args->val.result->str->n+1, idx, ARRAY_ASSIGN_MAP);
+
+			idx = zend_hash_func(args->val.result->str->c, args->val.result->str->n);
+			zend_hash_quick_find(&ptr->map->ht, args->val.result->str->c, args->val.result->str->n, idx, (void**)&tmpPtr);
+			if(!tmpPtr) {
+				CNEW01(tmpPtr, exp_val_t);
+				zend_hash_quick_update(&ptr->map->ht, args->val.result->str->c, args->val.result->str->n, idx, tmpPtr, 0, NULL);
+			}
+			ptr = tmpPtr;
+			if(args->next) {
+				args = args->next;
+				goto array_assign;
+			} else {
+				VAR_ACC();
+			}
+		} while(0);
+	#undef ARRAY_ASSIGN_MAP
+	} else {
+		calc_conv_to_hashtable(ptr);
+		goto array_assign_map;
 	}
 	
 	return NONE_STATUS;
@@ -1947,6 +2081,14 @@ void calc_free_expr(exp_val_t *expr) {
 				}
 				free(expr->arr->array);
 				free(expr->arr);
+			}
+			break;
+		}
+		case MAP_T: {
+			dprintf("--- FreeVars: MAP_T(%u) ---\n", expr->map->gc);
+			if(!(expr->map->gc--)) {
+				zend_hash_destroy(&expr->map->ht);
+				free(expr->map);
 			}
 			break;
 		}

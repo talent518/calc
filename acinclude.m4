@@ -119,7 +119,7 @@ AC_DEFUN([CALC_NEW_EXT],[
 
 	echo >> Makefile.am
 	echo "libext_$1_a_SOURCES = $files" >> Makefile.am
-	echo "libext_$1_a_CFLAGS = -fPIC -DSYS_CONF_DIR=\"$${sysconfdir}\" $4" >> Makefile.am
+	echo "libext_$1_a_CFLAGS = -fPIC $4" >> Makefile.am
 	
 	if test ! "$no_undef $5" = " "; then
 		echo "libext_$1_a_LDFLAGS = $no_undef $5" >> Makefile.am
