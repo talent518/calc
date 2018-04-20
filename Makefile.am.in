@@ -2,6 +2,7 @@ bin_PROGRAMS = calc
 
 calc_SOURCES = main.c
 calc_LDADD = libcalc.la
+calc_LDFLAGS = -Wl,-rpath=$(libdir) $(LDFLAGS)
 
 libcalc_la_SOURCES = parser.c scanner.c zend_hash.c calc.c ext.c
 libcalc_la_LIBADD = @extlibs@
