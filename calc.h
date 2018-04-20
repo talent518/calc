@@ -386,11 +386,7 @@ void calc_free_vars(exp_val_t *expr);
 #define str2num(val) \
 	if((val)->type == STR_T) { \
 		string_t *str = (val)->str; \
-		(val)->type = INT_T; \
-		 \
-		memset((val), 0, sizeof(exp_val_t)); \
 		str2val((val), str->c); \
-		 \
 		(val)->result = (val); \
 		(val)->run = NULL; \
 		free_str(str); \
