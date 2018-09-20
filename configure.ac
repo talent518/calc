@@ -32,11 +32,19 @@ AC_TYPE_SIZE_T
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([bzero getcwd gettimeofday memchr memset strchr strdup strerror strrchr strstr strtol strtoul])
+AC_CHECK_FUNCS([bzero realpath getcwd gettimeofday memchr memset strchr strdup strerror strrchr strstr strtol strtoul])
 
 sinclude(acinclude.m4)
 
-CFLAGS="-O3 -DYYSTYPE_IS_DECLARED -DSYS_CONF_DIR=\"${sysconfdir}\" -D_GNU_SOURCE -Wno-unused-result"
+CFLAGS="-DYYSTYPE_IS_DECLARED -DSYS_CONF_DIR=\"${sysconfdir}\" -D_GNU_SOURCE -Wno-unused-result"
+DISTRIB_ID="Unix"
+
+if test -f /etc/lsb-release; then
+	sinclude(/etc/lsb-release)
+fi
+if test "$DISTRIB_ID" != "Ubuntu"; then
+	CFLAGS="$CFLAGS -O2"
+fi
 
 AC_ARG_ENABLE(debug, [  --enable-debug turn on debug], CFLAGS="$CFLAGS -g -DDEBUG")
 AC_ARG_ENABLE(expr-type, [  --enable-expr-type turn on expr type print], CFLAGS="$CFLAGS -DHAVE_EXPR_TYPE")
