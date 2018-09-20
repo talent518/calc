@@ -36,7 +36,7 @@ AC_CHECK_FUNCS([bzero getcwd gettimeofday memchr memset strchr strdup strerror s
 
 sinclude(acinclude.m4)
 
-CFLAGS="-O3 -DYYSTYPE_IS_DECLARED -DSYS_CONF_DIR=\"${sysconfdir}\""
+CFLAGS="-O3 -DYYSTYPE_IS_DECLARED -DSYS_CONF_DIR=\"${sysconfdir}\" -D_GNU_SOURCE -Wno-unused-result"
 
 AC_ARG_ENABLE(debug, [  --enable-debug turn on debug], CFLAGS="$CFLAGS -g -DDEBUG")
 AC_ARG_ENABLE(expr-type, [  --enable-expr-type turn on expr type print], CFLAGS="$CFLAGS -DHAVE_EXPR_TYPE")
