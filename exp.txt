@@ -20,7 +20,7 @@ echo "2l = ", 2l, endl;
 echo "PI = ", PI, endl;
 echo "180.0r = ", 180.0r, endl;
 echo "rad(180) = ", rad(180), endl;
-echo sin(45r), endl;
+echo "sin(45r) = ", sin(45r), endl;
 echo "sin(rad(45)) = ", sin(rad(45)), endl;
 echo "sin(45 * PI / 180.0) = ", sin(45 * PI / 180.0), endl;
 echo "asin(sin(45r)) * 180.0 / PI = ", asin(sin(45r)) * 180.0 / PI, endl;

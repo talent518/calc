@@ -39,8 +39,7 @@ sinclude(acinclude.m4)
 CFLAGS="-DYYSTYPE_IS_DECLARED -DSYS_CONF_DIR=\"${sysconfdir}\" -D_GNU_SOURCE -Wno-unused-result"
 
 if test -f "/usr/bin/lsb_release" -a "$(lsb_release -is)" != "Ubuntu"; then
-	CFLAGS="$CFLAGS -O2"
-	AC_MSG_ERROR([ubuntu])
+	CFLAGS="$CFLAGS -O3"
 fi
 
 AC_ARG_ENABLE(debug, [  --enable-debug turn on debug], CFLAGS="$CFLAGS -g -DDEBUG")
