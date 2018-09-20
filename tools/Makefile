@@ -6,12 +6,12 @@ all: ./bin/bison ./bin/flex ../parser.c ../scanner.c
 
 .PHONY:
 
-../parser.c: ./bin/bison
-	@echo parser.y
+../parser.c: ./bin/bison ../parser.y
+	@echo parser.c
 	@./bin/bison -v -d -Wnone -o$@ ../parser.y
 
-../scanner.c: ./bin/flex
-	@echo scanner.l
+../scanner.c: ./bin/flex ../scanner.l
+	@echo scanner.c
 	@./bin/flex --header-file=../scanner.h --outfile=$@ ../scanner.l
 
 ./build:

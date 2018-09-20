@@ -253,7 +253,7 @@ void calc_conv_to_float(exp_val_t *src) {
 			break;
 		}
 		case LONG_T: {
-			src->fval = src->fval;
+			src->fval = src->lval;
 			break;
 		}
 		case FLOAT_T: {
@@ -1243,6 +1243,8 @@ int apply_delete(void *ptr, int num_args, va_list args, zend_hash_key *hash_key)
 	HashTable *ht = va_arg(args, HashTable*);
 	
 	zend_hash_quick_del(ht, hash_key->arKey, hash_key->nKeyLength, hash_key->h);
+
+	return ZEND_HASH_APPLY_KEEP;
 }
 
 extern int isRunSyms;

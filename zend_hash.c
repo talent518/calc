@@ -19,6 +19,8 @@
 
 /* $Id$ */
 
+#include <limits.h>
+
 #include "zend_hash.h"
 
 #define CONNECT_TO_BUCKET_DLLIST(element, list_head)		\
