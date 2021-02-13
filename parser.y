@@ -102,7 +102,7 @@ int zend_hash_apply_append_frees(void*, HashTable*);
 %token LIST CLEAR
 %token CALL FUNC
 %token VARIABLE STR NUMBER
-%token ECHO_T GLOBAL_T RET IF ELSE WHILE DO BREAK ARRAY FOR
+%token ECHO_T GLOBAL RET IF ELSE WHILE DO BREAK ARRAY FOR
 %token INC DEC
 %token ADDEQ SUBEQ MULEQ DIVEQ MODEQ POWEQ
 %token SWITCH CASE DEFAULT
@@ -204,7 +204,7 @@ funcStmtList: funcStmt
  | funcStmtList funcStmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$2.syms); } }
 ;
 funcStmt: stmt
- | GLOBAL_T varArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,GLOBAL_T,args,$2.callArgs);$$.syms->run = calc_run_sym_null; } }
+ | GLOBAL varArgList ';' { if(EXPECTED(isSyntaxData)) { STMT($$,GLOBAL_STMT_T,args,$2.callArgs);$$.syms->run = calc_run_sym_null; } }
 ;
 switchStmtList: switchStmt
  | switchStmtList switchStmt { if(EXPECTED(isSyntaxData)) { APPEND($$.syms,$2.syms);$$.syms->tail=$2.syms->tail; } }

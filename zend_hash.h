@@ -60,6 +60,8 @@ typedef long zend_long;
 typedef unsigned long zend_ulong;
 typedef unsigned short zend_ushort;
 
+typedef unsigned long ulong;
+
 #ifdef __cplusplus
 	#define BEGIN_EXTERN_C() extern "C" {
 	#define END_EXTERN_C() }

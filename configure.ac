@@ -57,8 +57,6 @@ fi
 enable_exts=yes
 AC_ARG_ENABLE(exts, [  --enable-exts turn on extensions [[default=yes]]], enable_exts=$enableval)
 
-let extsize=0
-
 sinclude(ext/Makefile.m4)
 
 [

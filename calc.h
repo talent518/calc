@@ -1,5 +1,5 @@
 #ifndef _CALC_H
-#define CALC_H
+#define _CALC_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -72,6 +72,7 @@ typedef enum _call_enum_f {
 // 语句类型枚举类型 ==================================
 typedef enum _symbol_enum_t {
 	ECHO_STMT_T, // echo
+	GLOBAL_STMT_T, // global
 	RET_STMT_T, // ret
 	ASSIGN_STMT_T, // var = expr
 	ACC_STMT_T, // var += expr

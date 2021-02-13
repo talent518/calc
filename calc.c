@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <complex.h>
 #include "calc.h"
 #include "parser.h"
 #include "scanner.h"
@@ -640,7 +641,7 @@ void calc_func_def(func_def_f *def) {
 	register call_args_t *tmpArgs = NULL;
 
 	while(syms) {
-		if(syms->type != GLOBAL_T) {
+		if(syms->type != GLOBAL_STMT_T) {
 			syms = syms->next;
 			continue;
 		}
@@ -661,7 +662,7 @@ void calc_func_def(func_def_f *def) {
 		syms = def->syms;
 
 		while(syms) {
-			if(syms->type != GLOBAL_T) {
+			if(syms->type != GLOBAL_STMT_T) {
 				syms = syms->next;
 				continue;
 			}

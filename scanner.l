@@ -71,7 +71,7 @@ void comment_str(char *s) {
 "run"                                          { return RUN; }
 "exit"                                         { return EXIT; }
 "array"                                        { return ARRAY; }
-"global"                                       { return GLOBAL_T; }
+"global"                                       { return GLOBAL; }
 "ret"                                          { return RET; }
 "return"                                       { return RET; }
 "echo"                                         { return ECHO_T; }
